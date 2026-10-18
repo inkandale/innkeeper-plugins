@@ -1,0 +1,12 @@
+name = "card-rules"
+version = "0.1.0"
+protocol = 1
+command = ["./card-rules"]
+capabilities = ["enrich"]
+description = "Score cards for obvious structural problems, without a model: an empty or thin description, a missing or short greeting, leftover template text, and absurd length. Fast enough for a first pass over a whole library."
+category = "AI"
+
+[enrichments]
+quality = { type = "score", range = [0, 100], label = "Rules quality", grid = true }
+issues = { type = "list", label = "Issues" }
+tokens = { type = "score", range = [0, 10000000], label = "Estimated tokens" }

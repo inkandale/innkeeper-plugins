@@ -71,6 +71,15 @@ capabilities = ["import", "sites", "pull"]
 description = "Import a card or lorebook from its page URL on chub.ai, RisuRealm, or Character Tavern, link library items to their pages there, and check those pages for the author's changes. Needs a core with source_kinds."
 
 [[plugin]]
+name = "card-rules"
+category = "AI"
+path = "card-rules"
+version = "0.1.0"
+protocol = 1
+capabilities = ["enrich"]
+description = "Score cards for obvious structural problems, without a model: an empty or thin description, a missing or short greeting, leftover template text, and absurd length. Fast enough for a first pass over a whole library."
+
+[[plugin]]
 name = "forge-ai"
 category = "AI"
 path = "forge-ai"
