@@ -1,10 +1,9 @@
 name = "chub-archive"
-version = "0.3.0"
+version = "0.3.1"
 protocol = 1
 command = ["./chub-archive"]
 capabilities = ["import"]
 bulk = true
-multiple_instances = true
 description = "Import the chub.ai archive's SQL dump into a library, one card per item with every version."
 category = "Import"
 database = true

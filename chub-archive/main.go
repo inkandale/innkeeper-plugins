@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const version = "0.3.0"
+const version = "0.3.1"
 
 // env is what initialize set up.
 type env struct {

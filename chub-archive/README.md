@@ -12,10 +12,9 @@ or lorebook per archive item, with each of its versions as a revision.
    worker container on Kubernetes. It only needs to be mounted while an
    import runs.
 3. In Innkeeper, create a library for the archive, such as "Chub archive".
-4. Create a chub-archive instance. Set **Image folders** to the
-   `hashed-data` folders under the archive's `sql` folder.
-5. Start an import into that library with the chub-archive instance and
-   these params:
+4. Set up chub-archive. Set **Image folders** to the `hashed-data` folders
+   under the archive's `sql` folder, from every takeout you import.
+5. Start an import into that library with chub-archive and these params:
 
    ```json
    {"dump": "/archive/sql/database_01-05-2025/char_archive_database_01-05-2025.sql"}
