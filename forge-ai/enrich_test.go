@@ -7,7 +7,10 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/inkandale/innkeeper/protocol"
 )
@@ -77,6 +80,8 @@ func TestEnrichMapsEvaluationToDeclaredKeys(t *testing.T) {
 
 func TestEnrichFailedRevisionKeepsTheBatch(t *testing.T) {
 	llm, cfg := withLLM(t, fakeReply{status: 400}, streamed("I can't score this."), streamed(evaluated))
+	// One at a time, so each card gets the scripted reply in order.
+	cfg["concurrency"] = 1
 	h := startPlugin(t, cfg)
 	res, err := h.enrich(t, enrichParams("Brakka", "Mira", "Ash"))
 	if err != nil {
@@ -305,5 +310,47 @@ func TestEnrichFallsBackToChatWhenDecideFails(t *testing.T) {
 	}
 	if got := values(t, res.Results[0]); got["quality"] != 82 || len(llm.requests) != 1 {
 		t.Fatalf("values %v, chat calls %d", got, len(llm.requests))
+	}
+}
+
+func TestEnrichScoresConcurrentlyInOrder(t *testing.T) {
+	llm, cfg := withLLM(t, streamed(evaluated), streamed(evaluated), fakeReply{status: 400})
+	cfg["concurrency"] = 2
+	var inFlight atomic.Int32
+	both := make(chan struct{})
+	var once sync.Once
+	llm.onRequest = func() {
+		defer inFlight.Add(-1)
+		if inFlight.Add(1) == 2 {
+			once.Do(func() { close(both) })
+		}
+		select {
+		case <-both:
+		case <-time.After(5 * time.Second):
+		}
+	}
+	h := startPlugin(t, cfg)
+	res, err := h.enrich(t, enrichParams("Brakka", "Mira", "Ash"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-both:
+	default:
+		t.Fatal("never two model calls at once")
+	}
+	ids := []int64{}
+	failed := 0
+	for _, r := range res.Results {
+		ids = append(ids, r.RevisionID)
+		if r.Error != "" {
+			failed++
+		}
+	}
+	if !slices.Equal(ids, []int64{100, 101, 102}) || failed != 1 {
+		t.Fatalf("results %+v", res.Results)
+	}
+	if len(h.progress) != 3 {
+		t.Fatalf("progress %+v", h.progress)
 	}
 }

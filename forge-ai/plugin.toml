@@ -1,5 +1,5 @@
 name = "forge-ai"
-version = "0.6.0"
+version = "0.7.0"
 protocol = 1
 command = ["./forge-ai"]
 capabilities = ["action", "records", "enrich", "settings"]
@@ -25,6 +25,14 @@ title = "Decision connection"
 format = "instance"
 x-offers = "ai.decide"
 description = "Optional. Scores cards for the library first, with one ai.decide call each: first impression, voice, roleplayability, and quality. Cards it fails on or isn't sure of go to the AI connection, which also scores consistency and token efficiency."
+
+[config.properties.concurrency]
+type = "integer"
+title = "Cards scored at once"
+minimum = 1
+maximum = 20
+default = 4
+description = "How many cards one scoring batch sends to the model at the same time. Raise it for a hosted model; lower it for a local one that runs one request at a time."
 
 [config.properties.escalate_below]
 type = "number"

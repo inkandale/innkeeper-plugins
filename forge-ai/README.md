@@ -71,6 +71,11 @@ whose reply has no scores, stores nothing and shows the error; the other
 cards still get scored. Scoring offers the model no tools: no skills and no
 library.
 
+The core sends cards in batches of up to 20. `concurrency`, 4 by default,
+is how many of a batch's cards are scored at once; results keep the batch's
+order. A hosted model's rate limit fails the cards it refuses, so lower
+`concurrency` if you see rate-limit errors.
+
 Each value records the model the `ai` instance answered with and the
 prompt's version: `evaluate-` plus a hash of `prompts/evaluate.tmpl`, the
 house style, the Evaluate override, and the temperature and max tokens sent.

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/inkandale/innkeeper/protocol"
 )
 
 // settings are the instance's config.
@@ -14,8 +16,10 @@ type settings struct {
 	Decide int64 `json:"decide"`
 	// EscalateBelow is the mean confidence under which the chat model re-scores a card.
 	EscalateBelow *float64 `json:"escalate_below"`
-	Temperature   *float64 `json:"temperature"`
-	MaxTokens     *int     `json:"max_tokens"`
+	// Concurrency is how many cards one batch scores at once.
+	Concurrency *int     `json:"concurrency"`
+	Temperature *float64 `json:"temperature"`
+	MaxTokens   *int     `json:"max_tokens"`
 	// Prompts are the owner's overrides by instructions key, and house_style.
 	// A key present with empty text is an override: no instructions.
 	Prompts map[string]string `json:"prompts"`
@@ -41,4 +45,15 @@ func (s settings) escalateBelow() float64 {
 		return defaultEscalateBelow
 	}
 	return *s.EscalateBelow
+}
+
+// defaultConcurrency keeps a local model's queue short while overlapping
+// network waits for a hosted one.
+const defaultConcurrency = 4
+
+func (s settings) concurrency() int {
+	if s.Concurrency == nil {
+		return defaultConcurrency
+	}
+	return min(max(*s.Concurrency, 1), protocol.MaxEnrichBatch)
 }

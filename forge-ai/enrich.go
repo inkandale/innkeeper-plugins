@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/inkandale/innkeeper/protocol"
 )
@@ -41,8 +43,9 @@ func evaluatePrompt(s settings) (string, error) {
 	return "evaluate-" + hex.EncodeToString(h.Sum(nil)[:4]), nil
 }
 
-// enrich scores each revision with the evaluate action. One revision's
-// failure is its own error; the rest of the batch goes on.
+// enrich scores a batch's revisions, up to the concurrency setting at once,
+// and returns their results in the batch's order. One revision's failure is
+// its own error; the rest of the batch goes on.
 func (srv *server) enrich(ctx context.Context, in *instance, params json.RawMessage) (*protocol.EnrichRunResult, error) {
 	var p protocol.EnrichRunParams
 	if err := json.Unmarshal(params, &p); err != nil {
@@ -54,26 +57,38 @@ func (srv *server) enrich(ctx context.Context, in *instance, params json.RawMess
 	if in.err != nil {
 		return nil, in.err
 	}
-	res := &protocol.EnrichRunResult{Results: []protocol.EnrichResult{}}
-	// ponytail: one revision at a time; run a few concurrently if batches are slow.
+	results := make([]protocol.EnrichResult, len(p.Revisions))
+	var started atomic.Int64
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, in.settings.concurrency())
+	// Cards start in the batch's order; a slot frees when one finishes.
 	for i, rev := range p.Revisions {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		_ = srv.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: p.Run, Done: int64(i), Total: int64(len(p.Revisions)),
-			Message: fmt.Sprintf("Evaluating %s (%d of %d)", revisionName(rev), i+1, len(p.Revisions))})
-		values, vm, err := srv.scores(ctx, in, p.Run, rev)
+		slots <- struct{}{}
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			<-slots
+			break
 		}
-		meta, _ := json.Marshal(vm)
-		out := protocol.EnrichResult{RevisionID: rev.RevisionID, Values: values, Meta: meta}
-		if err != nil {
-			out = protocol.EnrichResult{RevisionID: rev.RevisionID, Error: err.Error()}
-		}
-		res.Results = append(res.Results, out)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-slots }()
+			n := started.Add(1)
+			_ = srv.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: p.Run, Done: n - 1, Total: int64(len(p.Revisions)),
+				Message: fmt.Sprintf("Evaluating %s (%d of %d)", revisionName(rev), n, len(p.Revisions))})
+			values, vm, err := srv.scores(ctx, in, p.Run, rev)
+			if err != nil {
+				results[i] = protocol.EnrichResult{RevisionID: rev.RevisionID, Error: err.Error()}
+				return
+			}
+			meta, _ := json.Marshal(vm)
+			results[i] = protocol.EnrichResult{RevisionID: rev.RevisionID, Values: values, Meta: meta}
+		}()
 	}
-	return res, nil
+	wg.Wait()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return &protocol.EnrichRunResult{Results: results}, nil
 }
 
 // valueMeta is stored with each value: the model and the prompt's version.
