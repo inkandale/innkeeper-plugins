@@ -41,9 +41,12 @@ the core's protocol docs. There are two ways to answer it:
 
 A connection that ticks both answers through `/v1/systemone`.
 
-llama.cpp's `/v1/systemone` reads the whole state again for every question,
-so its time grows with the number of questions. A choice question's
-`criteria` must be an object of option name to description there.
+llama.cpp's `/v1/systemone` reads the state once and shares it across a
+request's questions only for model types on its shared-prefix list. A model
+that reads in both directions, such as d3 (`attention.causal = false` in its
+GGUF), reads the whole state again for every question, so its time grows
+with the number of questions. A choice question's `criteria` must be an
+object of option name to description there.
 
 ## Settings page
 
