@@ -20,10 +20,12 @@ import (
 // the SSE delta objects every chat request streams; status, when set, fails
 // every request with it and the error code code.
 type fakeLLM struct {
-	mu       sync.Mutex
-	status   int
-	code     string
-	chat     []string
+	mu     sync.Mutex
+	status int
+	code   string
+	chat   []string
+	// decide is the /systemone reply body; a default answers every question.
+	decide   string
 	paths    []string
 	requests []map[string]any
 }
@@ -53,6 +55,17 @@ func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.HasSuffix(r.URL.Path, "/models"):
 		fmt.Fprint(w, `{"object": "list", "data": [{"id": "m2", "object": "model"}, {"id": "m1", "object": "model"}]}`)
+	case strings.HasSuffix(r.URL.Path, "/systemone"):
+		if f.decide != "" {
+			fmt.Fprint(w, f.decide)
+			return
+		}
+		answers := map[string]any{}
+		qs, _ := body["questions"].(map[string]any)
+		for id := range qs {
+			answers[id] = map[string]any{"type": "noul", "noul": 0.9}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"model": "d3", "answers": answers})
 	case strings.HasSuffix(r.URL.Path, "/embeddings"):
 		// Vector i is [i], sent in reverse order to check the plugin orders by index.
 		in, _ := body["input"].([]any)
@@ -162,9 +175,9 @@ func TestInitializeReportsTickedKinds(t *testing.T) {
 		config map[string]any
 		want   []string
 	}{
-		{"default", map[string]any{"provider": "ollama", "model": "m"}, []string{protocol.MethodAIChat}},
+		{"default", map[string]any{"provider": "ollama", "model": "m"}, []string{protocol.MethodAIChat, protocol.MethodAIDecide}},
 		{"both", map[string]any{"provider": "ollama", "model": "m", "kinds": []any{"embed", "chat"}},
-			[]string{protocol.MethodAIChat, protocol.MethodAIEmbed}},
+			[]string{protocol.MethodAIChat, protocol.MethodAIDecide, protocol.MethodAIEmbed}},
 		{"settings process", map[string]any{}, nil},
 	}
 	for _, c := range cases {

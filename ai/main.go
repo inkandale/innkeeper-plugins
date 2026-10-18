@@ -1,5 +1,5 @@
-// Command ai offers model services to other plugins, ai.chat and ai.embed,
-// through any-llm-go. One instance is one connection to a model.
+// Command ai offers model services to other plugins, ai.chat and ai.embed
+// through any-llm-go, and ai.decide. One instance is one connection to a model.
 package main
 
 import (
@@ -15,13 +15,15 @@ import (
 	anyllm "github.com/mozilla-ai/any-llm-go"
 )
 
-const version = "0.1.2"
+const version = "0.2.0"
 
 // connection is what initialize configured. llm is nil for the empty config
 // the core's settings process starts with.
 type connection struct {
 	settings settings
 	llm      anyllm.Provider
+	// apiKey is for /v1/systemone, which any-llm-go doesn't call.
+	apiKey string
 }
 
 type server struct {
@@ -59,6 +61,8 @@ func (srv *server) handle(ctx context.Context, method string, params json.RawMes
 		return srv.chat(ctx, params)
 	case protocol.MethodAIEmbed:
 		return srv.embed(ctx, params)
+	case protocol.MethodAIDecide:
+		return srv.decide(ctx, params)
 	case protocol.MethodSettingsOptions:
 		return options(ctx, params)
 	case protocol.MethodSettingsRun:
@@ -87,7 +91,10 @@ func connect(cfg map[string]any, apiKey string) (*connection, error) {
 	if slices.Contains(s.Kinds, "embed") && !embeds(llm) {
 		return nil, fmt.Errorf("settings: %s doesn't offer embeddings", s.Provider)
 	}
-	return &connection{settings: s, llm: llm}, nil
+	if slices.Contains(s.Kinds, "decide") && s.BaseURL == "" {
+		return nil, errors.New("settings: decide needs a base_url, the URL its /v1/systemone is under, such as http://localhost:8080/v1")
+	}
+	return &connection{settings: s, llm: llm, apiKey: apiKey}, nil
 }
 
 // services are what the connection offers; none before it's configured.

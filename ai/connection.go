@@ -34,17 +34,19 @@ type settings struct {
 
 // kind is one thing a connection can be for.
 type kind struct {
-	service string
-	label   string
-	probe   func(context.Context, *connection) error
+	services []string
+	label    string
+	probe    func(context.Context, *connection) error
 }
 
-// kinds are the values of the config's kinds, each with the service it
+// kinds are the values of the config's kinds, each with the services it
 // offers, its name in Test connection's report, and the smallest real call
-// that proves it works.
+// that proves it works. A chat model also answers ai.decide, as the fallback
+// for a decision model; decide answers it through the server's /v1/systemone.
 var kinds = map[string]kind{
-	"chat":  {protocol.MethodAIChat, "Chat", probeChat},
-	"embed": {protocol.MethodAIEmbed, "Embeddings", probeEmbed},
+	"chat":   {[]string{protocol.MethodAIChat, protocol.MethodAIDecide}, "Chat", probeChat},
+	"embed":  {[]string{protocol.MethodAIEmbed}, "Embeddings", probeEmbed},
+	"decide": {[]string{protocol.MethodAIDecide}, "Decisions", probeDecide},
 }
 
 // parseSettings reads a config. It doesn't require a model, since listing
@@ -81,7 +83,7 @@ func parseSettings(cfg map[string]any) (settings, error) {
 func (s settings) services() []string {
 	var out []string
 	for _, k := range s.Kinds {
-		out = append(out, kinds[k].service)
+		out = append(out, kinds[k].services...)
 	}
 	slices.Sort(out)
 	return slices.Compact(out)
