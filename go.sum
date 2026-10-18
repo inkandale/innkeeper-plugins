@@ -56,6 +56,8 @@ github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aN
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/inkandale/innkeeper v0.0.0-20261018040737-9454ec0cef75 h1:o41aUCBapg8GzDuy/0pDjMiC1bvnydpDcSh5Am1vcXQ=
 github.com/inkandale/innkeeper v0.0.0-20261018040737-9454ec0cef75/go.mod h1:TT/Z6eZM+qfdwGwA+3otara1hBHp9yFLLI9j/BLfLWU=
+github.com/inkandale/innkeeper v0.0.0-20261018211428-3e38bf121de9 h1:uiMajR0pnx4pROrfkzgTvg3QQbAg4AmSJSLJsKlL/jk=
+github.com/inkandale/innkeeper v0.0.0-20261018211428-3e38bf121de9/go.mod h1:TT/Z6eZM+qfdwGwA+3otara1hBHp9yFLLI9j/BLfLWU=
 github.com/invopop/jsonschema v0.14.0 h1:MHQqLhvpNUZfw+hM3AZDYK7jxO8FZoQeQM77g8iyZjg=
 github.com/invopop/jsonschema v0.14.0/go.mod h1:ygm6C2EaVNMBDPpaPlnOA2pFAxBnxGjFlMZABxm9n2I=
 github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=
