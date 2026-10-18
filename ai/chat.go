@@ -137,12 +137,15 @@ func mergeToolCalls(provider string, calls, deltas []anyllm.ToolCall) []anyllm.T
 // modelError gives a model failure the code a consumer branches on: a
 // refused request, which retrying won't fix, or a retryable one.
 func modelError(err error) error {
+	var provider *llmerrors.ProviderError
 	switch {
 	case errors.Is(err, llmerrors.ErrInvalidRequest), errors.Is(err, llmerrors.ErrUnsupportedParam),
 		errors.Is(err, llmerrors.ErrContextLength), errors.Is(err, llmerrors.ErrContentFilter):
 		return protocol.NewError(protocol.CodeAIRejected, err.Error(), false)
-	// ponytail: any-llm-go never sets ProviderError.StatusCode, so a rare 4xx such as
-	// 422 is retried with the 5xx and 529s; read each SDK's status if that costs.
+	// A provider error's status says whether a retry can help: a server error or
+	// no response may pass, but a client error such as 422 won't.
+	case errors.As(err, &provider) && provider.StatusCode >= 400 && provider.StatusCode < 500:
+		return protocol.NewError(protocol.CodeAIRejected, err.Error(), false)
 	case errors.Is(err, llmerrors.ErrRateLimit), errors.Is(err, llmerrors.ErrProvider),
 		errors.Is(err, context.DeadlineExceeded):
 		return protocol.NewError(protocol.CodeInternalError, err.Error(), true)

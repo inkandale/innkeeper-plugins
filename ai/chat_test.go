@@ -278,3 +278,13 @@ func TestChatSendsAnAssistantToolCallsExtraToTheProvider(t *testing.T) {
 		t.Fatalf("model turn %v", model)
 	}
 }
+
+// A 4xx the provider didn't classify, such as 422, won't succeed on retry.
+func TestChatUnclassifiedClientErrorIsAIRejected(t *testing.T) {
+	h := started(t, withLLM(t, &fakeLLM{status: 422}))
+	err := h.call(protocol.MethodAIChat, protocol.AIChatParams{Messages: []protocol.ChatMessage{{Role: "user", Content: "Hi"}}}, nil)
+	var rpcErr *protocol.Error
+	if !errors.As(err, &rpcErr) || rpcErr.Code != protocol.CodeAIRejected || rpcErr.Retryable() {
+		t.Fatalf("err = %v, want a final %d", err, protocol.CodeAIRejected)
+	}
+}
