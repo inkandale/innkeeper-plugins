@@ -1,11 +1,11 @@
 name = "forge-ai"
-version = "0.5.1"
+version = "0.6.0"
 protocol = 1
 command = ["./forge-ai"]
 capabilities = ["action", "records", "enrich", "settings"]
 description = "Write, revise, tighten, expand, and evaluate cards, write examples, alternate greetings, and lore entries, and score cards in bulk for the library grid, through an ai instance. Each action's instructions can be overridden on the Prompts tab. Keeps Agent Skills the model can load. Needs a core with the ai, action, records, enrich, and settings capabilities, and an ai instance offering chat."
 category = "AI"
-uses = ["ai.chat"]
+uses = ["ai.chat", "ai.decide"]
 database = true
 
 [config]
@@ -18,6 +18,21 @@ title = "AI connection"
 format = "instance"
 x-offers = "ai.chat"
 description = "The ai instance whose chat model every action uses."
+
+[config.properties.decide]
+type = "integer"
+title = "Decision connection"
+format = "instance"
+x-offers = "ai.decide"
+description = "Optional. Scores cards for the library first, with one ai.decide call each: first impression, voice, roleplayability, and quality. Cards it fails on or isn't sure of go to the AI connection, which also scores consistency and token efficiency."
+
+[config.properties.escalate_below]
+type = "number"
+title = "Escalate below confidence"
+minimum = 0
+maximum = 1
+default = 0.25
+description = "When the decision connection's mean confidence for a card is below this, the AI connection scores it instead. 0 keeps every decision; 1 sends every card on."
 
 [config.properties.temperature]
 type = "number"

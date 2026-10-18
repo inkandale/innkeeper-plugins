@@ -82,6 +82,43 @@ func (f *fakeLLM) answer(conn *protocol.Conn, raw json.RawMessage) (any, error) 
 	return protocol.AIChatResult{Text: text.String(), ToolCalls: reply.calls, Model: "m"}, nil
 }
 
+// fakeDecider stands in for an ai instance offering ai.decide. It gives
+// every score question the level and confidence in its maps, by question ID,
+// or fails with err.
+type fakeDecider struct {
+	mu         sync.Mutex
+	level      map[string]int
+	confidence map[string]float64
+	err        error
+	requests   []protocol.AIDecideParams
+}
+
+var deciders sync.Map
+
+func (f *fakeDecider) answer(p protocol.AIDecideParams) (any, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.requests = append(f.requests, p)
+	if f.err != nil {
+		return nil, f.err
+	}
+	res := protocol.AIDecideResult{Answers: map[string]protocol.DecideAnswer{}, Model: "d3"}
+	for id := range p.Questions {
+		score, conf := float64(f.level[id]), f.confidence[id]
+		res.Answers[id] = protocol.DecideAnswer{Type: "score", Score: &score, Confidence: &conf}
+	}
+	return res, nil
+}
+
+// withDecider adds a decide connection to cfg, answered by f.
+func withDecider(t *testing.T, cfg map[string]any, f *fakeDecider) map[string]any {
+	id := llmIDs.Add(1)
+	deciders.Store(id, f)
+	t.Cleanup(func() { deciders.Delete(id) })
+	cfg["decide"] = id
+	return cfg
+}
+
 // host is a fake Innkeeper core: it talks to the plugin's handler over pipes,
 // records progress, and answers library.call.
 type host struct {
@@ -107,6 +144,15 @@ func startWith(t *testing.T, params protocol.InitializeParams) *host {
 	h := &host{}
 	h.srv = srv
 	h.conn = protocol.NewConn(toHost, fromHost, func(ctx context.Context, method string, params json.RawMessage) (any, error) {
+		if method == protocol.MethodAIDecide {
+			var call protocol.AIDecideParams
+			_ = json.Unmarshal(params, &call)
+			d, ok := deciders.Load(call.Instance)
+			if !ok {
+				return nil, protocol.NewError(protocol.CodeForbidden, "no such connection", false)
+			}
+			return d.(*fakeDecider).answer(call)
+		}
 		if method == protocol.MethodAIChat {
 			var call protocol.ServiceCall
 			_ = json.Unmarshal(params, &call)

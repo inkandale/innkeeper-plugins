@@ -5,7 +5,8 @@ and adds alternate greetings, example dialogue, and lorebook entries, with a
 language model. It offers the `action`, `records`, `enrich`, and `settings`
 capabilities, and calls `ai.chat` on the `ai` instance its `connection`
 setting names, so it needs a core with those and an `ai` instance that
-offers chat.
+offers chat. Scoring can also call `ai.decide` on the instance its
+optional `decide` setting names.
 
 ## Settings
 
@@ -13,7 +14,8 @@ Settings has two tabs.
 
 - **General** holds `connection`, the `ai` instance every action uses, and
   `temperature` and `max_tokens`. When set, those two replace each
-  action's own; when empty, each action uses its own.
+  action's own; when empty, each action uses its own. It also holds
+  `decide` and `escalate_below`, for [scores](#scores).
 - **Prompts** holds the house style, the whole-card guidance, and each
   action's instructions.
 
@@ -73,6 +75,35 @@ Each value records the model the `ai` instance answered with and the
 prompt's version: `evaluate-` plus a hash of `prompts/evaluate.tmpl`, the
 house style, the Evaluate override, and the temperature and max tokens sent.
 Scores whose versions differ came from different setups.
+
+### Scoring with a decision model
+
+With `decide` set to an `ai` instance offering `ai.decide`, such as a
+vllm-sr/d3 connection, each card gets one `ai.decide` call first instead of
+the chat model. It asks four score questions, each with five levels that
+describe situations: `first_impression`, `voice`, `roleplayability`, and
+`craft`. Each level is scaled to 0 to 100. `quality` is the mean of all
+four; `craft` itself isn't stored. The questions see only the card's name,
+description, personality, scenario, first message, and examples. Their
+values' prompt version is `decide-` plus a hash of the questions.
+
+The chat model scores the card instead, with every dimension, when:
+
+- the decision call fails, such as a card too long for the server; or
+- the mean confidence of the four answers is below `escalate_below`,
+  0.25 by default.
+
+So `consistency`, `token_efficiency`, and `field_governance` come only from
+the chat model.
+
+The two don't score on the same scale. On 40 random Chub cards (October
+2026, d3 Q8_0 against Artemis 31B), they ranked cards alike, with a
+Spearman correlation of 0.89 on the mean of the four scores, from 0.68 for
+craft to 0.87 for voice. But d3 scored higher on average: first impression
+65 against 50, craft 61 against 49. Its confidence was low throughout, with
+medians from 0.22 to 0.40, and only partly marked the cards where the two
+disagreed. Score a sample both ways before comparing values across
+versions.
 
 ## Prompts
 

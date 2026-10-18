@@ -226,3 +226,84 @@ func TestEnrichPromptVersionFollowsTheSetup(t *testing.T) {
 		t.Errorf("another action's override changed the prompt version")
 	}
 }
+
+// confident answers every decide question at level 3 of 4 (75) with confidence 0.9.
+func confident() *fakeDecider {
+	f := &fakeDecider{level: map[string]int{}, confidence: map[string]float64{}}
+	for _, q := range decideQuestions {
+		f.level[q.key], f.confidence[q.key] = 3, 0.9
+	}
+	return f
+}
+
+func values(t *testing.T, r protocol.EnrichResult) map[string]float64 {
+	t.Helper()
+	got := map[string]float64{}
+	for k, v := range r.Values {
+		var n float64
+		if err := json.Unmarshal(v, &n); err != nil {
+			t.Fatalf("%s = %s: %v", k, v, err)
+		}
+		got[k] = n
+	}
+	return got
+}
+
+func TestEnrichScoresWithDecide(t *testing.T) {
+	llm, cfg := withLLM(t)
+	d := confident()
+	d.level["voice"] = 4
+	h := startPlugin(t, withDecider(t, cfg, d))
+	res, err := h.enrich(t, enrichParams("Brakka"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := res.Results[0]
+	// Quality is the mean of all four, craft included; craft isn't stored.
+	want := map[string]float64{"first_impression": 75, "voice": 100, "roleplayability": 75, "quality": 81.25}
+	if got := values(t, r); !maps.Equal(got, want) || r.Error != "" {
+		t.Fatalf("values %v (%s), want %v", got, r.Error, want)
+	}
+	var meta map[string]string
+	if err := json.Unmarshal(r.Meta, &meta); err != nil || meta["model"] != "d3" || !strings.HasPrefix(meta["prompt"], "decide-") {
+		t.Fatalf("meta %s: %v", r.Meta, err)
+	}
+	if len(llm.requests) != 0 {
+		t.Fatalf("the chat model was called %d times", len(llm.requests))
+	}
+	if len(d.requests) != 1 || len(d.requests[0].Questions) != 4 || !strings.Contains(string(d.requests[0].State), "A towering orc.") {
+		t.Fatalf("decide requests %+v", d.requests)
+	}
+}
+
+func TestEnrichEscalatesLowConfidenceToTheChatModel(t *testing.T) {
+	llm, cfg := withLLM(t, streamed(evaluated))
+	d := confident()
+	d.confidence["voice"], d.confidence["craft"] = 0, 0
+	cfg["escalate_below"] = 0.8
+	h := startPlugin(t, withDecider(t, cfg, d))
+	res, err := h.enrich(t, enrichParams("Brakka"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := res.Results[0]
+	if got := values(t, r); got["consistency"] != 90 || got["quality"] != 82 {
+		t.Fatalf("values %v, want the chat model's", got)
+	}
+	if !strings.Contains(string(r.Meta), `"evaluate-`) || len(llm.requests) != 1 {
+		t.Fatalf("meta %s, chat calls %d", r.Meta, len(llm.requests))
+	}
+}
+
+func TestEnrichFallsBackToChatWhenDecideFails(t *testing.T) {
+	llm, cfg := withLLM(t, streamed(evaluated))
+	d := &fakeDecider{err: protocol.NewError(protocol.CodeAIRejected, "prompt too long", false)}
+	h := startPlugin(t, withDecider(t, cfg, d))
+	res, err := h.enrich(t, enrichParams("Brakka"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := values(t, res.Results[0]); got["quality"] != 82 || len(llm.requests) != 1 {
+		t.Fatalf("values %v, chat calls %d", got, len(llm.requests))
+	}
+}
