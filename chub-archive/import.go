@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"sync"
 	"syscall"
@@ -37,6 +36,7 @@ type pending struct {
 	at        checkpoint // where the dump is after this row
 	err       error      // from reading the row
 	avatar    string     // a file in blob_tmp, or ""
+	avatarLog string     // why the version has no image, for the job's log
 	avatarErr error      // fails the run
 	done      chan struct{}
 }
@@ -126,7 +126,7 @@ func run(ctx context.Context, e *env, notify notifyFunc, raw json.RawMessage) (a
 				go func() {
 					defer wg.Done()
 					defer close(r.done)
-					r.avatar, r.avatarErr = loadAvatar(e, r.row)
+					r.avatar, r.avatarLog, r.avatarErr = loadAvatar(e, r.row)
 				}()
 			} else {
 				close(r.done)
@@ -155,14 +155,18 @@ func run(ctx context.Context, e *env, notify notifyFunc, raw json.RawMessage) (a
 		if err == nil {
 			err = r.avatarErr
 		}
+		if err == nil && r.avatarLog != "" {
+			err = logLine(notify, p.Run, r.avatarLog)
+		}
 		if err == nil {
 			err = sendRow(p.Run, r, parents, notify)
 		}
-		switch {
-		case errors.Is(err, errBadRow):
+		if errors.Is(err, errBadRow) {
 			r.dropAvatar()
-			log.Printf("skipped %s %s increment %s, ending at byte %d: %v", r.table, r.row[idColumn(r.table)], r.row["increment"], r.at.Offset, err)
-		case err != nil:
+			err = logLine(notify, p.Run, fmt.Sprintf("skipped %s %s increment %s, ending at byte %d: %v",
+				r.table, r.row[idColumn(r.table)], r.row["increment"], r.at.Offset, err))
+		}
+		if err != nil {
 			// A failed send leaves the file with the plugin, not the core.
 			r.dropAvatar()
 			return nil, retryable(err)
@@ -243,24 +247,30 @@ func readParents(ctx context.Context, path string, at checkpoint) (map[string]pa
 	}
 }
 
+// logLine adds a warning to the log of the job the run belongs to.
+func logLine(notify notifyFunc, run, message string) error {
+	return notify(protocol.NotifyLog, protocol.Log{Run: run, Level: "warn", Message: message})
+}
+
 // loadAvatar copies a card version's image from the archive into blob_tmp.
-// An image that can never be read is logged and left out; any other read or
-// write error is returned, to fail the run for the core to retry.
-func loadAvatar(e *env, row map[string]string) (string, error) {
+// An image that can never be read is left out, with why for the job's log;
+// any other read or write error is returned, to fail the run for the core to
+// retry.
+func loadAvatar(e *env, row map[string]string) (path, problem string, err error) {
 	hash := row["image_hash"]
 	b, err := readImage(e.images, hash)
 	if err != nil && !errors.Is(err, fs.ErrPermission) && !errors.Is(err, syscall.EISDIR) && !errors.Is(err, pluginio.ErrTooLarge) {
-		return "", err
+		return "", "", err
 	}
 	if err == nil && b != nil && imageExt(b) == "" {
 		err = errors.New("not a PNG, WebP, JPEG, or GIF")
 	}
 	if err != nil {
-		log.Printf("image %s: %v", hash, err)
-		return "", nil
+		return "", fmt.Sprintf("image %s: %v", hash, err), nil
 	}
 	if b == nil {
-		return "", nil
+		return "", "", nil
 	}
-	return pluginio.WriteTmp(e.blobTmp, "avatar-*."+imageExt(b), b)
+	path, err = pluginio.WriteTmp(e.blobTmp, "avatar-*."+imageExt(b), b)
+	return path, "", err
 }

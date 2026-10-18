@@ -26,6 +26,7 @@ type sent struct {
 	lorebooks []protocol.EmitLorebook
 	order     []string // item of each card and lorebook, in the order sent
 	cps       []string
+	logs      []string // level and message of each log notice
 }
 
 func importParams(dump, checkpoint string) json.RawMessage {
@@ -51,6 +52,8 @@ func runImport(t *testing.T, e *env, checkpoint string, stop func(cp string) boo
 		case protocol.EmitLorebook:
 			s.lorebooks = append(s.lorebooks, p)
 			s.order = append(s.order, p.Item)
+		case protocol.Log:
+			s.logs = append(s.logs, p.Level+" "+p.Message)
 		case protocol.Checkpoint:
 			s.cps = append(s.cps, string(p.Checkpoint))
 			if stop != nil && stop(string(p.Checkpoint)) {
@@ -268,6 +271,11 @@ func TestImportSendsVersionWithUnreadableImage(t *testing.T) {
 	s, _ := runImport(t, e, "", nil)
 	if len(s.cards) != 8 || sentCard(t, s, "chub_character_def:100", "Version 5").Avatar != "" {
 		t.Fatalf("sent %d cards, Aria's avatar %q; want 8, without an avatar", len(s.cards), sentCard(t, s, "chub_character_def:100", "Version 5").Avatar)
+	}
+	logged := strings.Join(s.logs, "\n")
+	if !strings.Contains(logged, "warn image abc0000000000000000000000000000d: ") ||
+		!strings.Contains(logged, "warn skipped chub_character_def 102 increment 8") {
+		t.Fatalf("logged %q; want warnings for the unreadable image and the bad row", s.logs)
 	}
 }
 

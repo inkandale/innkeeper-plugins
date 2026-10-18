@@ -69,8 +69,8 @@ github.com/googleapis/enterprise-certificate-proxy v0.3.4 h1:XYIDZApgAnrN1c855gT
 github.com/googleapis/enterprise-certificate-proxy v0.3.4/go.mod h1:YKe7cfqYXjKGpGvmSg28/fFvhNzinZQm8DGnaburhGA=
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/inkandale/innkeeper v0.0.0-20261017090601-cd8cc625f881 h1:Umre0kEnUohJdnwV3EEmq0xXzuVbhF8vfbr4fpUVp18=
-github.com/inkandale/innkeeper v0.0.0-20261017090601-cd8cc625f881/go.mod h1:OhjO9yBKYp45ck25vJ/e/D7DySm4rlb9I+FLyTRX0kQ=
+github.com/inkandale/innkeeper v0.0.0-20261018033034-6c934022a239 h1:YkTr5QQ9exOTH+20HGGTU76RFDSVXT8m1BqmGJ5jy10=
+github.com/inkandale/innkeeper v0.0.0-20261018033034-6c934022a239/go.mod h1:TT/Z6eZM+qfdwGwA+3otara1hBHp9yFLLI9j/BLfLWU=
 github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=
 github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=
 github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=

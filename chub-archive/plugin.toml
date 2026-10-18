@@ -1,5 +1,5 @@
 name = "chub-archive"
-version = "0.3.1"
+version = "0.3.2"
 protocol = 1
 command = ["./chub-archive"]
 capabilities = ["import"]

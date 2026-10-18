@@ -46,9 +46,10 @@ store isn't touched: delete that folder by hand once the import has run.
 - An import reads the whole dump, about 12 GB, and resumes from its last
   checkpoint if it stops. A checkpoint from a dump of another size is
   refused. Versions the library already has add nothing.
-- Rows that won't decode are skipped and logged with their table, ID, and
-  increment.
+- Rows that won't decode are skipped, with their table, ID, and increment
+  in the job's log.
 - A version whose image is missing or unreadable (permission denied, a
   folder, over 32 MiB, or not a PNG, WebP, JPEG, or GIF) is sent without an
-  avatar. Other image read or write errors stop the import, and the core
-  retries it from its last checkpoint.
+  avatar; an unreadable one is noted in the job's log. Other image read or
+  write errors stop the import, and the core retries it from its last
+  checkpoint.
