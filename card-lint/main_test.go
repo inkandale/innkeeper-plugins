@@ -97,10 +97,13 @@ func TestEachCheckListsItsCodeAndTakesItsPoints(t *testing.T) {
 			c["description"] = englishText + "\n\n{{char}} is Mira."
 			c["first_mes"] = englishText + "\n\n\"Hello.\""
 		}, 15},
-		"placeholder":   {func(c map[string]string) { c["scenario"] = "<bot> has let {{user}} in from the storm." }, 15},
-		"no_char_macro": {func(c map[string]string) { c["description"] = englishText; c["first_mes"] = "\"You are dripping on the floor.\"" }, 10},
-		"markup":        {func(c map[string]string) { c["personality"] = "<div style=\"color:red\">Patient and dry.</div>" }, 10},
-		"mojibake":      {func(c map[string]string) { c["personality"] = "Patient, dry, and fond of cafÃ© regulars." }, 10},
+		"placeholder": {func(c map[string]string) { c["scenario"] = "<bot> has let {{user}} in from the storm." }, 15},
+		"no_char_macro": {func(c map[string]string) {
+			c["description"] = englishText
+			c["first_mes"] = "\"You are dripping on the floor.\""
+		}, 10},
+		"markup":   {func(c map[string]string) { c["personality"] = "<div style=\"color:red\">Patient and dry.</div>" }, 10},
+		"mojibake": {func(c map[string]string) { c["personality"] = "Patient, dry, and fond of cafÃ© regulars." }, 10},
 	}
 	for code, tc := range cases {
 		t.Run(code, func(t *testing.T) {
@@ -134,55 +137,60 @@ func TestHundredPointProblemZeroesTheScore(t *testing.T) {
 	}
 }
 
-func TestEnglishScoreSeparatesLanguages(t *testing.T) {
+func TestLanguageNamesTheCardsLanguage(t *testing.T) {
 	texts := map[string]string{
 		"Spanish": "Ella es una bibliotecaria tranquila que ha cuidado el archivo de la vieja torre durante casi toda su vida. " +
 			"Cuando un extraño entra huyendo de la lluvia, lo observa desde detrás de los estantes antes de decir nada.",
-		"Chinese": "她是一位安静的图书管理员，几乎一生都在看守古塔里的档案馆。当一个陌生人从雨中走进来时，她会先在书架后面观察对方，然后才开口说话。",
+		"Mandarin": "她是一位安静的图书管理员，几乎一生都在看守古塔里的档案馆。当一个陌生人从雨中走进来时，她会先在书架后面观察对方，然后才开口说话。",
 		"Russian": "Она тихая библиотекарша, которая почти всю жизнь хранит архив старой башни. " +
-			"Когда незнакомец заходит с дождя, она сначала наблюдает за ним из-за полок и только потом говорит.",
+			"Когда незнакомец заходит с дождя, она сначала наблюдает за ним из-за полок и только потом говорит. " +
+			"У неё есть кошка по имени Чернила и толстая книга, в которую она записывает каждую книгу, которую так и не вернули. " +
+			"Она редко улыбается, но если вы принесёте ей чай, она расскажет вам историю о каждом томе на верхней полке.",
 	}
-	if got := number(t, lintCard(t, nil, cleanCard()), "english"); got < 25 {
-		t.Errorf("English card: english = %v, want at least 25", got)
+	if got := text(t, lintCard(t, nil, cleanCard()), "language"); got != "English" {
+		t.Errorf("English card: language = %q", got)
 	}
-	for lang, text := range texts {
+	for want, body := range texts {
 		card := cleanCard()
-		card["description"], card["first_mes"] = "{{char}} "+text, text
-		v := lintCard(t, nil, card)
-		if got := number(t, v, "english"); got >= 15 {
-			t.Errorf("%s card: english = %v, want under 15", lang, got)
+		card["description"], card["first_mes"] = "{{char}} "+body, body
+		if got := text(t, lintCard(t, nil, card), "language"); got != want {
+			t.Errorf("language = %q, want %s", got, want)
 		}
-		if p := problems(t, v); !slices.Contains(p, "not_english") {
-			t.Errorf("%s card: problems = %v, want not_english", lang, p)
-		}
+	}
+	short := cleanCard()
+	short["description"], short["first_mes"] = "{{char}}", "Hi."
+	if got := text(t, lintCard(t, nil, short), "language"); got != unknownLanguage {
+		t.Errorf("too short to tell: language = %q, want %s", got, unknownLanguage)
 	}
 }
 
-func TestSettingsChangeThresholdsAndPoints(t *testing.T) {
+func text(t *testing.T, values map[string]json.RawMessage, key string) string {
+	t.Helper()
+	var s string
+	if err := json.Unmarshal(values[key], &s); err != nil {
+		t.Fatalf("%s = %s: %v", key, values[key], err)
+	}
+	return s
+}
+
+func TestSettingsChangeThresholds(t *testing.T) {
 	v := lintCard(t, map[string]any{"max_tokens": 10}, cleanCard())
 	if p := problems(t, v); !slices.Equal(p, []string{"oversized"}) {
 		t.Fatalf("problems = %v, want [oversized]", p)
 	}
-	v = lintCard(t, map[string]any{"max_tokens": 10, "points": map[string]any{"oversized": 0}}, cleanCard())
-	if p := problems(t, v); !slices.Equal(p, []string{"oversized"}) {
-		t.Errorf("problems = %v, want [oversized] listed at 0 points", p)
-	}
-	if got := number(t, v, "lint"); got != 100 {
-		t.Errorf("lint = %v, want 100", got)
+	card := cleanCard()
+	card["scenario"] = "[[NAME]] has let {{user}} in from the storm."
+	if p := problems(t, lintCard(t, map[string]any{"placeholders": []string{"[[name]]"}}, card)); !slices.Equal(p, []string{"placeholder"}) {
+		t.Errorf("problems = %v, want [placeholder]", p)
 	}
 }
 
-func TestSettingsDefaultEveryProblemsPoints(t *testing.T) {
+func TestSettingsDefaultFromPluginToml(t *testing.T) {
 	s, err := parseSettings(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range checks {
-		if _, ok := s.Points[c.code]; !ok {
-			t.Errorf("plugin.toml has no default points for %s", c.code)
-		}
-	}
-	if s.MinTokens != 50 || s.MaxTokens != 4000 || s.RepeatWords != 20 || s.MinEnglish != 25 || len(s.Placeholders) == 0 {
+	if s.MinTokens != 50 || s.MaxTokens != 4000 || s.RepeatWords != 20 || len(s.Placeholders) == 0 {
 		t.Errorf("defaults = %+v", s)
 	}
 }

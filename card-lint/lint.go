@@ -5,8 +5,9 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"unicode"
 	"unicode/utf8"
+
+	"github.com/abadojack/whatlanggo"
 )
 
 // card is the part of a revision's CCv3 data the checks read.
@@ -41,38 +42,38 @@ func tokens(texts ...string) int {
 type facts struct {
 	card     card
 	tokens   int
-	english  int
 	settings settings
 }
 
-// checks are in the order problems lists them.
+// checks are in the order problems lists them. Each takes its points off
+// lint's 100; a card missing what roleplay needs loses them all.
 var checks = []struct {
-	code  string
-	fails func(f facts) bool
+	code   string
+	points int
+	fails  func(f facts) bool
 }{
-	{"no_name", func(f facts) bool { return blank(f.card.Name) }},
-	{"no_description", func(f facts) bool { return blank(f.card.Description) }},
-	{"no_first_message", func(f facts) bool { return blank(f.card.FirstMessage) }},
-	{"too_short", func(f facts) bool {
+	{"no_name", 100, func(f facts) bool { return blank(f.card.Name) }},
+	{"no_description", 100, func(f facts) bool { return blank(f.card.Description) }},
+	{"no_first_message", 100, func(f facts) bool { return blank(f.card.FirstMessage) }},
+	{"too_short", 100, func(f facts) bool {
 		return tokens(f.card.Description, f.card.Personality, f.card.Scenario) < f.settings.MinTokens
 	}},
-	{"not_english", func(f facts) bool { return f.english < f.settings.MinEnglish }},
-	{"oversized", func(f facts) bool { return f.tokens > f.settings.MaxTokens }},
-	{"repeated_text", func(f facts) bool { return repeated(f.card.alwaysOn(), f.settings.RepeatWords) }},
-	{"first_message_copies_description", func(f facts) bool {
+	{"oversized", 20, func(f facts) bool { return f.tokens > f.settings.MaxTokens }},
+	{"repeated_text", 15, func(f facts) bool { return repeated(f.card.alwaysOn(), f.settings.RepeatWords) }},
+	{"first_message_copies_description", 15, func(f facts) bool {
 		first, _, _ := strings.Cut(strings.TrimSpace(f.card.Description), "\n")
 		return wordCount(first) >= f.settings.RepeatWords && strings.Contains(normalize(f.card.FirstMessage), normalize(first))
 	}},
-	{"placeholder", func(f facts) bool { return slices.ContainsFunc(f.card.all(), f.hasPlaceholder) }},
-	{"no_char_macro", func(f facts) bool {
+	{"placeholder", 15, func(f facts) bool { return slices.ContainsFunc(f.card.all(), f.hasPlaceholder) }},
+	{"no_char_macro", 10, func(f facts) bool {
 		names := func(t string) bool {
 			t = strings.ToLower(t)
 			return strings.Contains(t, "{{char}}") || !blank(f.card.Name) && strings.Contains(t, strings.ToLower(strings.TrimSpace(f.card.Name)))
 		}
 		return !names(f.card.Description) && !names(f.card.FirstMessage)
 	}},
-	{"markup", func(f facts) bool { return slices.ContainsFunc(f.card.alwaysOn(), htmlTag.MatchString) }},
-	{"mojibake", func(f facts) bool { return slices.ContainsFunc(f.card.all(), garbled.MatchString) }},
+	{"markup", 10, func(f facts) bool { return slices.ContainsFunc(f.card.alwaysOn(), htmlTag.MatchString) }},
+	{"mojibake", 10, func(f facts) bool { return slices.ContainsFunc(f.card.all(), garbled.MatchString) }},
 }
 
 var (
@@ -125,17 +126,17 @@ func repeated(fields []string, minWords int) bool {
 type result struct {
 	score    int
 	tokens   int
-	english  int
+	language string
 	problems []string
 }
 
 func lint(s settings, c card) result {
-	f := facts{card: c, tokens: tokens(c.alwaysOn()...), english: english(c.Description, c.FirstMessage), settings: s}
-	r := result{score: 100, tokens: f.tokens, english: f.english, problems: []string{}}
+	f := facts{card: c, tokens: tokens(c.alwaysOn()...), settings: s}
+	r := result{score: 100, tokens: f.tokens, language: language(c.Description, c.FirstMessage), problems: []string{}}
 	for _, ch := range checks {
 		if ch.fails(f) {
 			r.problems = append(r.problems, ch.code)
-			r.score -= s.Points[ch.code]
+			r.score -= ch.points
 		}
 	}
 	r.score = max(r.score, 0)
@@ -147,7 +148,7 @@ const maxTokens = 1_000_000
 
 func (r result) values() (map[string]json.RawMessage, error) {
 	out := map[string]json.RawMessage{}
-	for k, v := range map[string]any{"lint": r.score, "tokens": min(r.tokens, maxTokens), "english": r.english, "problems": r.problems} {
+	for k, v := range map[string]any{"lint": r.score, "tokens": min(r.tokens, maxTokens), "language": r.language, "problems": r.problems} {
 		b, err := json.Marshal(v)
 		if err != nil {
 			return nil, err
@@ -157,52 +158,21 @@ func (r result) values() (map[string]json.RawMessage, error) {
 	return out, nil
 }
 
-// english is the percentage of the texts' words that are common English
-// words, after macros and markup are removed. Chinese and Japanese, written
-// without spaces, count each character as a word.
-// ponytail: a stopword ratio says only "English or not"; naming the language needs a detector such as whatlanggo.
-func english(texts ...string) int {
-	words, hits := 0, 0
-	var word strings.Builder
-	flush := func() {
-		if word.Len() == 0 {
-			return
-		}
-		words++
-		if englishWords[word.String()] {
-			hits++
-		}
-		word.Reset()
-	}
-	for _, t := range texts {
-		t = htmlTag.ReplaceAllString(macro.ReplaceAllString(t, " "), " ")
-		for _, r := range strings.ToLower(t) {
-			switch {
-			case unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana):
-				flush()
-				words++
-			case unicode.IsLetter(r) || r == '\'':
-				word.WriteRune(r)
-			default:
-				flush()
-			}
-		}
-		flush()
-	}
-	if words == 0 {
-		return 0
-	}
-	return hits * 100 / words
-}
+// unknownLanguage is the language of a card too short or mixed to tell.
+const unknownLanguage = "Unknown"
 
-var englishWords = func() map[string]bool {
-	m := map[string]bool{}
-	for w := range strings.FieldsSeq(`the a an and or but if of to in on at by for with from as into about over
-		after before under than then so not no is are was were be been being am has have had do does did will would
-		can could should may might must shall i you he she it we they me him her us them my your his its our their
-		this that these those who whom which what when where why how all any each some there here up down out off
-		very just too also only more most again never always while until because through`) {
-		m[w] = true
+// language names the texts' language, such as English or Japanese, after
+// macros and markup are removed.
+// ponytail: whatlanggo confuses short Cyrillic text (Ukrainian reads as Serbian, so Unknown); lingua-go is accurate but adds 130 MB.
+func language(texts ...string) string {
+	var b strings.Builder
+	for _, t := range texts {
+		b.WriteString(htmlTag.ReplaceAllString(macro.ReplaceAllString(t, " "), " "))
+		b.WriteString("\n")
 	}
-	return m
-}()
+	info := whatlanggo.Detect(b.String())
+	if !info.IsReliable() {
+		return unknownLanguage
+	}
+	return info.Lang.String()
+}

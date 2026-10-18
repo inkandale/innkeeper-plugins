@@ -16,12 +16,10 @@ var manifest []byte
 
 // settings is an instance's config over the schema's defaults.
 type settings struct {
-	MinTokens    int            `json:"min_tokens"`
-	MaxTokens    int            `json:"max_tokens"`
-	RepeatWords  int            `json:"repeat_words"`
-	MinEnglish   int            `json:"min_english"`
-	Placeholders []string       `json:"placeholders"`
-	Points       map[string]int `json:"points"`
+	MinTokens    int      `json:"min_tokens"`
+	MaxTokens    int      `json:"max_tokens"`
+	RepeatWords  int      `json:"repeat_words"`
+	Placeholders []string `json:"placeholders"`
 }
 
 // schemaProperty is the part of a config schema property defaults come from.
@@ -43,7 +41,6 @@ func parseSettings(config map[string]any) (settings, error) {
 		if err != nil {
 			return settings{}, err
 		}
-		// Unmarshal into a filled map adds to it, so points the config leaves out keep their defaults.
 		if err := json.Unmarshal(b, &s); err != nil {
 			return settings{}, fmt.Errorf("config: %w", err)
 		}
