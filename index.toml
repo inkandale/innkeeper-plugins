@@ -96,3 +96,12 @@ version = "0.2.1"
 protocol = 1
 capabilities = ["ai", "settings"]
 description = "Connect a language model for other plugins to use: chat and embeddings from OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Ollama, llama.cpp, or any OpenAI-compatible server, and decisions from a /v1/systemone decision model or a chat model. One instance per connection. Needs a core with the ai and settings capabilities."
+
+[[plugin]]
+name = "card-lint"
+category = "Quality"
+path = "card-lint"
+version = "0.1.0"
+protocol = 1
+capabilities = ["enrich"]
+description = "Score cards with fast checks that need no model: missing fields, size, repeated text, leftover placeholders, markup, garbled text, and whether the card is in English. Use it to filter an archive before a model-based evaluation. Every threshold and each problem's points are settings."

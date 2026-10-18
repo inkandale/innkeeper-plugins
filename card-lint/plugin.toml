@@ -1,0 +1,42 @@
+name = "card-lint"
+version = "0.1.0"
+protocol = 1
+command = ["./card-lint"]
+capabilities = ["enrich"]
+description = "Score cards with fast checks that need no model: missing fields, size, repeated text, leftover placeholders, markup, garbled text, and whether the card is in English. Use it to filter an archive before a model-based evaluation. Every threshold and each problem's points are settings."
+category = "Quality"
+
+[config]
+type = "object"
+
+[config.properties]
+min_tokens = { type = "integer", title = "Too short under", minimum = 0, default = 50, description = "Estimated tokens across description, personality, and scenario." }
+max_tokens = { type = "integer", title = "Oversized over", minimum = 1, default = 4000, description = "Estimated tokens across the fields sent with every message: description, personality, scenario, system prompt, and post-history instructions." }
+repeat_words = { type = "integer", title = "Repeated text from", minimum = 5, default = 20, description = "Words a paragraph needs before a copy of it counts as repeated text." }
+min_english = { type = "integer", title = "Not English under", minimum = 0, maximum = 100, default = 25, description = "The English score below which a card is not English. English prose scores 40 to 60; other languages under 15." }
+placeholders = { type = "array", title = "Placeholders", items = { type = "string" }, default = ["<BOT>", "<USER>", "{char}", "{user}", "[name]", "[character]"], description = "Leftover template text, matched in any case." }
+
+[config.properties.points]
+type = "object"
+title = "Points"
+description = "What each problem takes off the 100-point lint score. 100 makes the score 0 on its own; 0 only lists the problem."
+
+[config.properties.points.properties]
+no_name = { type = "integer", title = "No name", minimum = 0, maximum = 100, default = 100 }
+no_description = { type = "integer", title = "No description", minimum = 0, maximum = 100, default = 100 }
+no_first_message = { type = "integer", title = "No first message", minimum = 0, maximum = 100, default = 100 }
+too_short = { type = "integer", title = "Too short", minimum = 0, maximum = 100, default = 100 }
+not_english = { type = "integer", title = "Not English", minimum = 0, maximum = 100, default = 100 }
+oversized = { type = "integer", title = "Oversized", minimum = 0, maximum = 100, default = 20 }
+repeated_text = { type = "integer", title = "Repeated text", minimum = 0, maximum = 100, default = 15 }
+first_message_copies_description = { type = "integer", title = "First message copies description", minimum = 0, maximum = 100, default = 15 }
+placeholder = { type = "integer", title = "Leftover placeholder", minimum = 0, maximum = 100, default = 15 }
+no_char_macro = { type = "integer", title = "Never names the character", minimum = 0, maximum = 100, default = 10 }
+markup = { type = "integer", title = "HTML markup", minimum = 0, maximum = 100, default = 10 }
+mojibake = { type = "integer", title = "Garbled text", minimum = 0, maximum = 100, default = 10 }
+
+[enrichments]
+lint = { type = "score", range = [0, 100], label = "Lint", grid = true }
+tokens = { type = "score", range = [0, 1000000], label = "Always-on tokens" }
+problems = { type = "list", label = "Problems" }
+english = { type = "score", range = [0, 100], label = "English" }
