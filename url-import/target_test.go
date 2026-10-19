@@ -47,13 +47,6 @@ func TestTargetDescribeLeavesOutBooksAndSources(t *testing.T) {
 	}
 }
 
-func TestTargetListsAreEmpty(t *testing.T) {
-	b, _ := json.Marshal(noItems)
-	if string(b) != `{"items":[]}` {
-		t.Errorf("lists answer %s", b)
-	}
-}
-
 func TestTargetGetChubCard(t *testing.T) {
 	f := chubSite(t)
 	res, err := get(t, f, "chub:u/seraphina", true)

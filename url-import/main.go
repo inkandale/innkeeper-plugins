@@ -27,8 +27,6 @@ func main() {
 			protocol.MethodTargetDescribe: func(*string, context.Context, json.RawMessage) (any, error) {
 				return targetInfo, nil
 			},
-			protocol.MethodTargetList:          listNothing,
-			protocol.MethodTargetListLorebooks: listNothing,
 			protocol.MethodTargetGet: func(blobTmp *string, ctx context.Context, params json.RawMessage) (any, error) {
 				return getCard(ctx, f, *blobTmp, params)
 			},
@@ -38,5 +36,3 @@ func main() {
 		},
 	})
 }
-
-func listNothing(*string, context.Context, json.RawMessage) (any, error) { return noItems, nil }

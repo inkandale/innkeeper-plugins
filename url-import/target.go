@@ -25,10 +25,6 @@ var targetInfo = protocol.TargetInfo{
 	LorebookFields: []string{"name", "description", "scan_depth", "token_budget", "recursive_scanning", "extensions", "entries"},
 }
 
-// noItems answers target.list and target.list_lorebooks: there is nothing to
-// bind except the sources the core already knows.
-var noItems = protocol.TargetListResult{Items: []protocol.TargetItem{}}
-
 // follow fetches the page that remoteID, kind:ref, names. A remote_id that
 // url-import can't read is gone, so the core stops expecting it.
 func follow(ctx context.Context, f *fetcher, remoteID string, lorebook bool) (found, error) {
