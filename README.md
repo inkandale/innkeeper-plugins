@@ -29,8 +29,9 @@ that sets both the `protocol` package and the contract kit.
 
 Every push to `main` releases each plugin version that has no release yet,
 tagged `<name>-v<version>`, with a tarball for linux/amd64 and linux/arm64.
-Bump `version` in both `plugin.toml` and `index.toml` to publish a change; a
-release is never rebuilt. A change to `categories`, or to a plugin's
+To publish a change, bump the version in three places: `version` in
+`plugin.toml` and `index.toml`, and `const version` in the plugin's `main.go`.
+`make check` fails when they differ. A release is never rebuilt. A change to `categories`, or to a plugin's
 `category` or `recommended`, needs no bump: the published index takes them
 from `index.toml`.
 
