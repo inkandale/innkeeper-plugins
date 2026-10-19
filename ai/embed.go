@@ -3,20 +3,20 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/inkandale/innkeeper/protocol"
 	anyllm "github.com/mozilla-ai/any-llm-go"
 )
 
-func (srv *server) embed(ctx context.Context, params json.RawMessage) (any, error) {
-	c, err := srv.offering(protocol.MethodAIEmbed)
-	if err != nil {
+func (c *connection) embed(ctx context.Context, params json.RawMessage) (any, error) {
+	if err := c.offering(protocol.MethodAIEmbed); err != nil {
 		return nil, err
 	}
 	var p protocol.AIEmbedParams
 	if err := json.Unmarshal(params, &p); err != nil || len(p.Texts) == 0 {
-		return nil, invalid("ai.embed needs texts")
+		return nil, protocol.InvalidParams(errors.New("ai.embed needs texts"))
 	}
 	vectors, err := embedTexts(ctx, c, p.Texts)
 	if err != nil {

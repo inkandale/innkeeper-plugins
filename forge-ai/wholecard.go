@@ -17,7 +17,7 @@ var planLimits = action{temperature: 0.3, maxTokens: 4096}
 // field, then the action runs on each planned field in turn, against the card
 // as the fields before it left it.
 func (srv *server) wholeCard(ctx context.Context, in *instance, r *run) (*protocol.ActionRunResult, error) {
-	_ = srv.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Total: 1, Message: "Planning " + r.Label})
+	_ = in.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Total: 1, Message: "Planning " + r.Label})
 	notes, planText, err := srv.plan(ctx, in, r)
 	if err != nil {
 		return nil, fmt.Errorf("plan: %w", err)
@@ -30,7 +30,7 @@ func (srv *server) wholeCard(ctx context.Context, in *instance, r *run) (*protoc
 		}
 	}
 	for i, f := range planned {
-		_ = srv.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Done: int64(i + 1), Total: int64(len(planned) + 1),
+		_ = in.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Done: int64(i + 1), Total: int64(len(planned) + 1),
 			Message: fmt.Sprintf("%s: %s (%d of %d)", r.Label, label(f), i+1, len(planned))})
 		// section shares r.draft; its proposal copies the draft before changing
 		// its field, and decoding it back into r.draft shows the next section the change.

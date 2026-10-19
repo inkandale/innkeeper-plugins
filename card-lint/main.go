@@ -7,47 +7,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"sync/atomic"
 
 	"github.com/inkandale/innkeeper/protocol"
 )
 
-const version = "0.3.0"
-
 func main() {
-	// Set by initialize; requests run on other goroutines.
-	var cur atomic.Pointer[settings]
-	handler := func(_ context.Context, method string, params json.RawMessage) (any, error) {
-		switch method {
-		case protocol.MethodInitialize:
-			var p protocol.InitializeParams
-			if err := json.Unmarshal(params, &p); err != nil {
-				return nil, invalid(err)
-			}
+	protocol.Serve(protocol.Plugin[settings]{
+		Init: func(_ context.Context, p protocol.InitializeParams) (*settings, error) {
 			s, err := parseSettings(p.Config)
 			if err != nil {
-				return nil, invalid(err)
+				return nil, protocol.InvalidParams(err)
 			}
-			cur.Store(&s)
-			return protocol.InitializeResult{Protocol: protocol.Version, Name: "card-lint", Version: version,
-				Capabilities: []string{"enrich"}}, nil
-		case protocol.MethodShutdown:
-			return nil, nil
-		case protocol.MethodEnrichRun:
-			s := cur.Load()
-			if s == nil {
-				return nil, fmt.Errorf("%s before initialize", method)
-			}
-			return enrich(*s, params)
-		}
-		return nil, protocol.MethodNotFound(method)
-	}
-	conn := protocol.NewConn(os.Stdin, os.Stdout, handler)
-	if err := conn.Run(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+			return &s, nil
+		},
+		Methods: map[string]func(*settings, context.Context, json.RawMessage) (any, error){
+			protocol.MethodEnrichRun: func(s *settings, _ context.Context, params json.RawMessage) (any, error) {
+				return enrich(*s, params)
+			},
+		},
+	})
 }
 
 // enrich lints each revision in the batch. A revision whose data won't
@@ -55,10 +33,10 @@ func main() {
 func enrich(s settings, params json.RawMessage) (*protocol.EnrichRunResult, error) {
 	var p protocol.EnrichRunParams
 	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	if len(p.Revisions) == 0 || len(p.Revisions) > protocol.MaxEnrichBatch {
-		return nil, invalid(fmt.Errorf("revisions must hold 1 to %d", protocol.MaxEnrichBatch))
+		return nil, protocol.InvalidParams(fmt.Errorf("revisions must hold 1 to %d", protocol.MaxEnrichBatch))
 	}
 	res := &protocol.EnrichRunResult{Results: make([]protocol.EnrichResult, 0, len(p.Revisions))}
 	for _, rev := range p.Revisions {
@@ -74,8 +52,4 @@ func enrich(s settings, params json.RawMessage) (*protocol.EnrichRunResult, erro
 		res.Results = append(res.Results, protocol.EnrichResult{RevisionID: rev.RevisionID, Values: values})
 	}
 	return res, nil
-}
-
-func invalid(err error) error {
-	return protocol.NewError(protocol.CodeInvalidParams, err.Error(), false)
 }

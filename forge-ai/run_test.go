@@ -63,7 +63,7 @@ func (f *fakeLLM) answer(conn *protocol.Conn, raw json.RawMessage) (any, error) 
 	hook := f.onRequest
 	if len(f.replies) == 0 {
 		f.mu.Unlock()
-		return nil, protocol.NewError(-32000, "no reply scripted", false)
+		return nil, protocol.Fail("no reply scripted", false)
 	}
 	reply := f.replies[0]
 	f.replies = f.replies[1:]
@@ -128,6 +128,8 @@ type host struct {
 	calls    []protocol.LibraryCallParams
 	library  func(protocol.LibraryCallParams) (any, error)
 	srv      *server
+	// in is the instance initialize built, for tests that call the server directly.
+	in *instance
 }
 
 func startPlugin(t *testing.T, config map[string]any) *host {
@@ -139,10 +141,19 @@ func startWith(t *testing.T, params protocol.InitializeParams) *host {
 	t.Helper()
 	toPlugin, fromHost := io.Pipe()
 	toHost, fromPlugin := io.Pipe()
-	srv := &server{}
-	srv.conn = protocol.NewConn(toPlugin, fromPlugin, srv.handle)
-	h := &host{}
-	h.srv = srv
+	m, err := protocol.LoadManifest(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &host{srv: &server{}}
+	p := h.srv.plugin()
+	init := p.Init
+	p.Init = func(ctx context.Context, ip protocol.InitializeParams) (*instance, error) {
+		in, err := init(ctx, ip)
+		h.in = in
+		return in, err
+	}
+	pluginConn := protocol.NewConn(toPlugin, fromPlugin, p.Handler(m))
 	h.conn = protocol.NewConn(toHost, fromHost, func(ctx context.Context, method string, params json.RawMessage) (any, error) {
 		if method == protocol.MethodAIDecide {
 			var call protocol.AIDecideParams
@@ -182,7 +193,7 @@ func startWith(t *testing.T, params protocol.InitializeParams) *host {
 		return nil, protocol.MethodNotFound(method)
 	})
 	ctx, cancel := context.WithCancel(context.Background())
-	go srv.conn.Run(ctx)
+	go pluginConn.Run(ctx)
 	go h.conn.Run(ctx)
 	t.Cleanup(func() {
 		cancel()
@@ -458,7 +469,7 @@ func TestCancelStopsTheToolLoop(t *testing.T) {
 	}
 	params := protocol.AIChatParams{Messages: []protocol.ChatMessage{{Role: "user", Content: "hi"}}}
 	noProgress := func() func(string) { return func(string) {} }
-	if _, err := h.srv.complete(ctx, h.srv.cur.Load(), "1.1", params, toolbox{tools: libraryTools, call: lib}, noProgress); !errors.Is(err, context.Canceled) {
+	if _, err := h.srv.complete(ctx, h.in, "1.1", params, toolbox{tools: libraryTools, call: lib}, noProgress); !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}
 	if len(llm.requests) != 1 {

@@ -122,7 +122,7 @@ func TestEnrichCancelStopsFurtherCalls(t *testing.T) {
 	llm.onRequest = cancel // The owner pressed Stop during the first call.
 	h := startPlugin(t, cfg)
 	params, _ := json.Marshal(enrichParams("Brakka", "Mira"))
-	if _, err := h.srv.enrich(ctx, h.srv.cur.Load(), params); !errors.Is(err, context.Canceled) {
+	if _, err := h.srv.enrich(ctx, h.in, params); !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}
 	llm.mu.Lock()

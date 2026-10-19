@@ -97,13 +97,13 @@ var errUnsure = errors.New("the decision model isn't confident enough")
 
 // decideScores scores one revision with the decision model: each question's
 // level scaled to 0 to 100, and quality their mean.
-func (srv *server) decideScores(ctx context.Context, s settings, rev protocol.EnrichRevision) (map[string]json.RawMessage, valueMeta, error) {
+func (srv *server) decideScores(ctx context.Context, in *instance, rev protocol.EnrichRevision) (map[string]json.RawMessage, valueMeta, error) {
 	state, err := decideState(rev.Data)
 	if err != nil {
 		return nil, valueMeta{}, err
 	}
 	var res protocol.AIDecideResult
-	err = srv.conn.Call(ctx, protocol.MethodAIDecide, protocol.AIDecideParams{ServiceCall: protocol.ServiceCall{Instance: s.Decide},
+	err = in.conn.Call(ctx, protocol.MethodAIDecide, protocol.AIDecideParams{ServiceCall: protocol.ServiceCall{Instance: in.settings.Decide},
 		State: state, Questions: decideRequest()}, &res)
 	if err != nil {
 		return nil, valueMeta{}, err
@@ -124,7 +124,7 @@ func (srv *server) decideScores(ctx context.Context, s settings, rev protocol.En
 			values[q.key], _ = json.Marshal(score)
 		}
 	}
-	if confidence < s.escalateBelow() {
+	if confidence < in.settings.escalateBelow() {
 		return nil, valueMeta{}, errUnsure
 	}
 	values[qualityKey], _ = json.Marshal(quality)

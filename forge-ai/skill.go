@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/inkandale/innkeeper/protocol"
 	"gopkg.in/yaml.v3"
 )
 
@@ -46,38 +48,38 @@ var skillNamePattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 // check applies the Agent Skills name and description rules and the limits.
 func (s skill) check() error {
 	if len(s.Name) > 64 || !skillNamePattern.MatchString(s.Name) {
-		return invalid("skill name %q must be 1 to 64 lowercase letters, digits, and single hyphens, not starting or ending with a hyphen", s.Name)
+		return protocol.InvalidParams(fmt.Errorf("skill name %q must be 1 to 64 lowercase letters, digits, and single hyphens, not starting or ending with a hyphen", s.Name))
 	}
 	if d := strings.TrimSpace(s.Description); d == "" || utf8.RuneCountInString(d) > 1024 || !isText([]byte(d)) {
-		return invalid("skill %s: description must be 1 to 1024 characters of text", s.Name)
+		return protocol.InvalidParams(fmt.Errorf("skill %s: description must be 1 to 1024 characters of text", s.Name))
 	}
 	if strings.TrimSpace(s.Body) == "" {
-		return invalid("skill %s: instructions are empty", s.Name)
+		return protocol.InvalidParams(fmt.Errorf("skill %s: instructions are empty", s.Name))
 	}
 	if !isText([]byte(s.Body)) {
-		return invalid("skill %s: instructions must be UTF-8 text without NUL characters", s.Name)
+		return protocol.InvalidParams(fmt.Errorf("skill %s: instructions must be UTF-8 text without NUL characters", s.Name))
 	}
 	if len(s.Body) > maxFileSize {
-		return invalid("skill %s: instructions are over %d MiB", s.Name, maxFileSize>>20)
+		return protocol.InvalidParams(fmt.Errorf("skill %s: instructions are over %d MiB", s.Name, maxFileSize>>20))
 	}
 	if len(s.Files) > maxFiles {
-		return invalid("skill %s has %d reference files; the limit is %d", s.Name, len(s.Files), maxFiles)
+		return protocol.InvalidParams(fmt.Errorf("skill %s has %d reference files; the limit is %d", s.Name, len(s.Files), maxFiles))
 	}
 	total := len(s.Body)
 	for p, text := range s.Files {
 		if !isText([]byte(p)) || !localPath(p) || path.Clean(p) != p || p == "SKILL.md" {
-			return invalid("skill %s: reference file path %q must be relative, such as references/notes.md", s.Name, p)
+			return protocol.InvalidParams(fmt.Errorf("skill %s: reference file path %q must be relative, such as references/notes.md", s.Name, p))
 		}
 		if !isText([]byte(text)) {
-			return invalid("skill %s: %s must be UTF-8 text without NUL characters", s.Name, p)
+			return protocol.InvalidParams(fmt.Errorf("skill %s: %s must be UTF-8 text without NUL characters", s.Name, p))
 		}
 		if len(text) > maxFileSize {
-			return invalid("skill %s: %s is over %d MiB", s.Name, p, maxFileSize>>20)
+			return protocol.InvalidParams(fmt.Errorf("skill %s: %s is over %d MiB", s.Name, p, maxFileSize>>20))
 		}
 		total += len(text)
 	}
 	if total > maxSkillSize {
-		return invalid("skill %s is over %d MiB", s.Name, maxSkillSize>>20)
+		return protocol.InvalidParams(fmt.Errorf("skill %s is over %d MiB", s.Name, maxSkillSize>>20))
 	}
 	return nil
 }
@@ -115,23 +117,23 @@ func parseSkillMarkdown(b []byte) (skill, error) {
 	rest, ok := strings.CutPrefix(text, "---\n")
 	if !ok {
 		if strings.HasPrefix(strings.TrimSpace(text), "<") {
-			return skill{}, invalid("got a web page, not a SKILL.md or a zip; link the raw file")
+			return skill{}, protocol.InvalidParams(errors.New("got a web page, not a SKILL.md or a zip; link the raw file"))
 		}
-		return skill{}, invalid("a SKILL.md starts with --- and YAML frontmatter")
+		return skill{}, protocol.InvalidParams(errors.New("a SKILL.md starts with --- and YAML frontmatter"))
 	}
 	front, body, ok := strings.Cut(rest, "\n---\n")
 	if !ok {
 		front, ok = strings.CutSuffix(strings.TrimRight(rest, "\n"), "\n---")
 	}
 	if !ok {
-		return skill{}, invalid("the SKILL.md frontmatter has no closing ---")
+		return skill{}, protocol.InvalidParams(errors.New("the SKILL.md frontmatter has no closing ---"))
 	}
 	var meta struct {
 		Name        string `yaml:"name"`
 		Description string `yaml:"description"`
 	}
 	if err := yaml.Unmarshal([]byte(front), &meta); err != nil {
-		return skill{}, invalid("SKILL.md frontmatter: %v", err)
+		return skill{}, protocol.InvalidParams(fmt.Errorf("SKILL.md frontmatter: %v", err))
 	}
 	s := skill{Name: strings.TrimSpace(meta.Name), Description: strings.TrimSpace(meta.Description), Body: strings.TrimSpace(body), Enabled: true}
 	return s, s.check()
@@ -144,7 +146,7 @@ func parseUpload(b []byte) (skill, error) {
 		return parseZip(b)
 	}
 	if len(b) > maxFileSize {
-		return skill{}, invalid("a SKILL.md must be at most %d MiB", maxFileSize>>20)
+		return skill{}, protocol.InvalidParams(fmt.Errorf("a SKILL.md must be at most %d MiB", maxFileSize>>20))
 	}
 	return parseSkillMarkdown(b)
 }
@@ -155,27 +157,27 @@ func parseUpload(b []byte) (skill, error) {
 func parseZip(b []byte) (skill, error) {
 	zr, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
 	if err != nil {
-		return skill{}, invalid("not a readable zip: %v", err)
+		return skill{}, protocol.InvalidParams(fmt.Errorf("not a readable zip: %v", err))
 	}
 	if len(zr.File) > maxZipEntries {
-		return skill{}, invalid("the zip has %d entries; the limit is %d", len(zr.File), maxZipEntries)
+		return skill{}, protocol.InvalidParams(fmt.Errorf("the zip has %d entries; the limit is %d", len(zr.File), maxZipEntries))
 	}
 	var main *zip.File
 	for _, f := range zr.File {
 		// Nothing is extracted to disk, but a path that escapes the folder
 		// means a malicious or broken archive.
 		if !localPath(f.Name) {
-			return skill{}, invalid("the zip's entry %q leaves its folder", f.Name)
+			return skill{}, protocol.InvalidParams(fmt.Errorf("the zip's entry %q leaves its folder", f.Name))
 		}
 		if path.Base(f.Name) == "SKILL.md" && !f.FileInfo().IsDir() {
 			if main != nil {
-				return skill{}, invalid("the zip holds more than one SKILL.md; import one skill per zip")
+				return skill{}, protocol.InvalidParams(errors.New("the zip holds more than one SKILL.md; import one skill per zip"))
 			}
 			main = f
 		}
 	}
 	if main == nil {
-		return skill{}, invalid("the zip holds no SKILL.md")
+		return skill{}, protocol.InvalidParams(errors.New("the zip holds no SKILL.md"))
 	}
 	total := 0
 	// read returns f's text, or nil for a file that isn't text. Only text
@@ -183,13 +185,13 @@ func parseZip(b []byte) (skill, error) {
 	read := func(f *zip.File) ([]byte, error) {
 		rc, err := f.Open()
 		if err != nil {
-			return nil, invalid("%s: %v", f.Name, err)
+			return nil, protocol.InvalidParams(fmt.Errorf("%s: %v", f.Name, err))
 		}
 		defer rc.Close()
 		head := make([]byte, sniffSize)
 		n, err := io.ReadFull(rc, head)
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-			return nil, invalid("%s: %v", f.Name, err)
+			return nil, protocol.InvalidParams(fmt.Errorf("%s: %v", f.Name, err))
 		}
 		if !headIsText(head[:n]) {
 			return nil, nil
@@ -197,17 +199,17 @@ func parseZip(b []byte) (skill, error) {
 		// The header's size can lie, so the reader is what's limited.
 		rest, err := io.ReadAll(io.LimitReader(rc, int64(maxFileSize+1-n)))
 		if err != nil {
-			return nil, invalid("%s: %v", f.Name, err)
+			return nil, protocol.InvalidParams(fmt.Errorf("%s: %v", f.Name, err))
 		}
 		b := append(head[:n], rest...)
 		if len(b) > maxFileSize {
-			return nil, invalid("%s is over %d MiB", f.Name, maxFileSize>>20)
+			return nil, protocol.InvalidParams(fmt.Errorf("%s is over %d MiB", f.Name, maxFileSize>>20))
 		}
 		if !isText(b) {
 			return nil, nil
 		}
 		if total += len(b); total > maxSkillSize {
-			return nil, invalid("the skill is over %d MiB", maxSkillSize>>20)
+			return nil, protocol.InvalidParams(fmt.Errorf("the skill is over %d MiB", maxSkillSize>>20))
 		}
 		return b, nil
 	}
@@ -216,7 +218,7 @@ func parseZip(b []byte) (skill, error) {
 		return skill{}, err
 	}
 	if mb == nil {
-		return skill{}, invalid("%s must be UTF-8 text without NUL characters", main.Name)
+		return skill{}, protocol.InvalidParams(fmt.Errorf("%s must be UTF-8 text without NUL characters", main.Name))
 	}
 	s, err := parseSkillMarkdown(mb)
 	if err != nil {
@@ -249,21 +251,21 @@ func parseZip(b []byte) (skill, error) {
 func fetchSkill(ctx context.Context, raw string) (skill, error) {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return skill{}, invalid("%q isn't an http or https URL", raw)
+		return skill{}, protocol.InvalidParams(fmt.Errorf("%q isn't an http or https URL", raw))
 	}
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
-		return skill{}, invalid("%v", err)
+		return skill{}, protocol.InvalidParams(err)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return skill{}, invalid("fetch %s: %v", raw, err)
+		return skill{}, protocol.InvalidParams(fmt.Errorf("fetch %s: %v", raw, err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return skill{}, invalid("fetch %s: %s", raw, resp.Status)
+		return skill{}, protocol.InvalidParams(fmt.Errorf("fetch %s: %s", raw, resp.Status))
 	}
 	b, err := readUpload(resp.Body)
 	if err != nil {
@@ -279,7 +281,7 @@ func readUpload(r io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("read: %w", err)
 	}
 	if len(b) > maxUpload {
-		return nil, invalid("the file is over %d MiB", maxUpload>>20)
+		return nil, protocol.InvalidParams(fmt.Errorf("the file is over %d MiB", maxUpload>>20))
 	}
 	return b, nil
 }

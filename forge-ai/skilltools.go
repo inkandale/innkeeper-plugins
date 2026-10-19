@@ -33,14 +33,14 @@ func (in *instance) forcedSkills(ctx context.Context, enabled []skill, names []s
 			continue
 		}
 		if !slices.ContainsFunc(enabled, func(sk skill) bool { return sk.Name == name }) {
-			return nil, invalid("unknown skill %q: it isn't stored or isn't enabled", name)
+			return nil, protocol.InvalidParams(fmt.Errorf("unknown skill %q: it isn't stored or isn't enabled", name))
 		}
 		sk, err := in.store.get(ctx, name)
 		if err != nil {
 			return nil, fmt.Errorf("load skill %s: %w", name, err)
 		}
 		if size += len(sk.Body); size > maxForced {
-			return nil, invalid("the mentioned skills' instructions are over %d KiB together; mention fewer", maxForced>>10)
+			return nil, protocol.InvalidParams(fmt.Errorf("the mentioned skills' instructions are over %d KiB together; mention fewer", maxForced>>10))
 		}
 		forced = append(forced, sk)
 	}

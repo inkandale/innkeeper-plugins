@@ -12,13 +12,10 @@ import (
 	"io"
 	"os"
 	"strings"
-	"sync/atomic"
 
 	"github.com/inkandale/innkeeper/protocol"
 	"golang.org/x/crypto/bcrypt"
 )
-
-const version = "0.2.1"
 
 // subject is who every login is. The owner sets it as the instance's owner_subject.
 const subject = "owner"
@@ -41,74 +38,63 @@ func main() {
 		}
 		return
 	}
-	// Set by initialize; requests run on other goroutines.
-	var hash atomic.Value
-	handler := func(_ context.Context, method string, params json.RawMessage) (any, error) {
-		switch method {
-		case protocol.MethodInitialize:
-			var p protocol.InitializeParams
-			if err := json.Unmarshal(params, &p); err != nil {
-				return nil, protocol.NewError(protocol.CodeInvalidParams, err.Error(), false)
-			}
-			hash.Store(p.Secrets["password_hash"])
-			return protocol.InitializeResult{Protocol: protocol.Version, Name: "password-login", Version: version,
-				Capabilities: []string{"auth"}}, nil
-		case protocol.MethodShutdown:
-			return nil, nil
-		case protocol.MethodAuthBegin:
-			return protocol.AuthBeginResult{Form: json.RawMessage(form)}, nil
-		case protocol.MethodAuthComplete:
-			h, _ := hash.Load().(string)
-			return complete(h, params)
-		case protocol.MethodAuthSetup:
-			return protocol.AuthSetupResult{Form: json.RawMessage(setupForm)}, nil
-		case protocol.MethodAuthSetupComplete:
-			return setupComplete(params)
-		}
-		return nil, protocol.MethodNotFound(method)
-	}
-	conn := protocol.NewConn(os.Stdin, os.Stdout, handler)
-	if err := conn.Run(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	protocol.Serve(protocol.Plugin[string]{
+		Init: func(_ context.Context, p protocol.InitializeParams) (*string, error) {
+			h := p.Secrets["password_hash"]
+			return &h, nil
+		},
+		Methods: map[string]func(*string, context.Context, json.RawMessage) (any, error){
+			protocol.MethodAuthBegin: func(*string, context.Context, json.RawMessage) (any, error) {
+				return protocol.AuthBeginResult{Form: json.RawMessage(form)}, nil
+			},
+			protocol.MethodAuthComplete: func(hash *string, _ context.Context, params json.RawMessage) (any, error) {
+				return complete(*hash, params)
+			},
+			protocol.MethodAuthSetup: func(*string, context.Context, json.RawMessage) (any, error) {
+				return protocol.AuthSetupResult{Form: json.RawMessage(setupForm)}, nil
+			},
+			protocol.MethodAuthSetupComplete: func(_ *string, _ context.Context, params json.RawMessage) (any, error) {
+				return setupComplete(params)
+			},
+		},
+	})
 }
 
 // complete checks the form's password against hash.
 func complete(hash string, params json.RawMessage) (any, error) {
 	var p protocol.AuthCompleteParams
 	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, protocol.NewError(protocol.CodeInvalidParams, err.Error(), false)
+		return nil, protocol.InvalidParams(err)
 	}
 	if hash == "" {
-		return nil, protocol.NewError(-32000, "the instance has no password_hash secret; make one with: password-login hash", false)
+		return nil, protocol.Fail("the instance has no password_hash secret; make one with: password-login hash", false)
 	}
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(p.Params["password"]))
 	switch {
 	case err == nil:
 		return protocol.AuthCompleteResult{Subject: subject, Name: "Owner"}, nil
 	case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
-		return nil, protocol.NewError(-32000, "wrong password", false)
+		return nil, protocol.Fail("wrong password", false)
 	}
-	return nil, protocol.NewError(-32000, "password_hash is not a bcrypt hash: "+err.Error(), false)
+	return nil, protocol.Fail("password_hash is not a bcrypt hash: "+err.Error(), false)
 }
 
 // setupComplete checks a new password and returns its hash as the secret.
 func setupComplete(params json.RawMessage) (any, error) {
 	var p protocol.AuthSetupCompleteParams
 	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, protocol.NewError(protocol.CodeInvalidParams, err.Error(), false)
+		return nil, protocol.InvalidParams(err)
 	}
 	pw := p.Params["password"]
 	switch {
 	case pw != p.Params["confirm"]:
-		return nil, protocol.NewError(-32000, "the passwords don't match", false)
+		return nil, protocol.Fail("the passwords don't match", false)
 	case len([]rune(pw)) < minPassword:
-		return nil, protocol.NewError(-32000, fmt.Sprintf("use at least %d characters", minPassword), false)
+		return nil, protocol.Fail(fmt.Sprintf("use at least %d characters", minPassword), false)
 	}
 	h, err := bcrypt.GenerateFromPassword([]byte(pw), cost)
 	if err != nil {
-		return nil, protocol.NewError(-32000, err.Error(), false)
+		return nil, protocol.Fail(err.Error(), false)
 	}
 	return protocol.AuthSetupCompleteResult{Secrets: map[string]string{"password_hash": string(h)}, Subject: subject}, nil
 }

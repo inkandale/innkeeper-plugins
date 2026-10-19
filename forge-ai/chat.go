@@ -93,12 +93,12 @@ func (srv *server) complete(ctx context.Context, in *instance, run string, param
 		if round == maxToolRounds {
 			params.Tools = nil
 		}
-		res, err := srv.chat(ctx, run, params, newProgress())
+		res, err := srv.chat(ctx, in, run, params, newProgress())
 		if err != nil && round == 1 && params.Tools != nil && rejected(err) {
 			// Most likely a model without tool support; the context and forced skills in the prompt still apply.
 			fmt.Fprintf(os.Stderr, "retrying without tools: %v\n", err)
 			box.tools, params.Tools = nil, nil
-			res, err = srv.chat(ctx, run, params, newProgress())
+			res, err = srv.chat(ctx, in, run, params, newProgress())
 		}
 		if err != nil || len(res.ToolCalls) == 0 || params.Tools == nil {
 			return res, err
@@ -119,7 +119,7 @@ func (srv *server) complete(ctx context.Context, in *instance, run string, param
 
 // chat sends one ai.chat through the core under its own streaming token,
 // passing onText the reply's text so far as it streams.
-func (srv *server) chat(ctx context.Context, run string, params protocol.AIChatParams, onText func(string)) (protocol.AIChatResult, error) {
+func (srv *server) chat(ctx context.Context, in *instance, run string, params protocol.AIChatParams, onText func(string)) (protocol.AIChatResult, error) {
 	params.Run = fmt.Sprintf("%s/%d", run, srv.chats.Add(1))
 	var text strings.Builder
 	srv.deltas.Store(params.Run, func(piece string) {
@@ -128,7 +128,7 @@ func (srv *server) chat(ctx context.Context, run string, params protocol.AIChatP
 	})
 	defer srv.deltas.Delete(params.Run)
 	var res protocol.AIChatResult
-	err := srv.conn.Call(ctx, protocol.MethodAIChat, params, &res)
+	err := in.conn.Call(ctx, protocol.MethodAIChat, params, &res)
 	return res, err
 }
 

@@ -61,27 +61,27 @@ type importer struct {
 func run(ctx context.Context, e env, notify notifyFunc, raw json.RawMessage) (any, error) {
 	var p protocol.ImportRunParams
 	if err := json.Unmarshal(raw, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	var ps params
 	if len(p.Params) > 0 && string(p.Params) != "null" {
 		dec := json.NewDecoder(bytes.NewReader(p.Params))
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(&ps); err != nil {
-			return nil, invalid(fmt.Errorf("params: %w", err))
+			return nil, protocol.InvalidParams(fmt.Errorf("params: %w", err))
 		}
 	}
 	var cp checkpoint
 	if len(p.Checkpoint) > 0 && string(p.Checkpoint) != "null" {
 		if err := json.Unmarshal(p.Checkpoint, &cp); err != nil {
-			return nil, invalid(fmt.Errorf("checkpoint: %w", err))
+			return nil, protocol.InvalidParams(fmt.Errorf("checkpoint: %w", err))
 		}
 	}
 	im := &importer{env: e, run: p.Run, notify: notify}
 	var err error
 	switch {
 	case ps.Blob != "" && ps.Path != "":
-		err = invalid(errors.New("params: give path or blob, not both"))
+		err = protocol.InvalidParams(errors.New("params: give path or blob, not both"))
 	case ps.Blob != "":
 		err = im.importUpload(ps.Blob, ps.Name)
 	default:
@@ -96,20 +96,20 @@ func run(ctx context.Context, e env, notify notifyFunc, raw json.RawMessage) (an
 // importUpload imports one uploaded file from the library blob store.
 func (im *importer) importUpload(sha, name string) error {
 	if !sha256Pattern.MatchString(sha) {
-		return invalid(errors.New("params: blob must be a sha256 in lowercase hex"))
+		return protocol.InvalidParams(errors.New("params: blob must be a sha256 in lowercase hex"))
 	}
 	if im.library == "" {
 		return errors.New("initialize sent no library blob store")
 	}
 	b, err := pluginio.ReadFile(filepath.Join(im.library, sha[:2], sha[2:4], sha))
 	if errors.Is(err, fs.ErrNotExist) {
-		return invalid(fmt.Errorf("no uploaded file %s; uploads are kept for 24 hours", sha))
+		return protocol.InvalidParams(fmt.Errorf("no uploaded file %s; uploads are kept for 24 hours", sha))
 	}
 	if err != nil {
 		return err
 	}
 	if err := im.emit(sha, name, b); errors.Is(err, card.ErrNotCard) {
-		return invalid(fmt.Errorf("%s is not a card or lorebook: %w", cmp.Or(name, sha), err))
+		return protocol.InvalidParams(fmt.Errorf("%s is not a card or lorebook: %w", cmp.Or(name, sha), err))
 	} else if err != nil {
 		return err
 	}
@@ -120,14 +120,14 @@ func (im *importer) importUpload(sha, name string) error {
 // inside config.folder, resuming after the file last.
 func (im *importer) importFolder(ctx context.Context, dir, last string) error {
 	if im.folder == "" {
-		return invalid(errors.New("this instance has no folder in its config; set one, or import an upload with params.blob"))
+		return protocol.InvalidParams(errors.New("this instance has no folder in its config; set one, or import an upload with params.blob"))
 	}
 	if !fs.ValidPath(dir) {
-		return invalid(fmt.Errorf("params: path %q must be relative to the folder and stay inside it", dir))
+		return protocol.InvalidParams(fmt.Errorf("params: path %q must be relative to the folder and stay inside it", dir))
 	}
 	root, err := os.OpenRoot(im.folder)
 	if err != nil {
-		return invalid(fmt.Errorf("config folder: %w", err))
+		return protocol.InvalidParams(fmt.Errorf("config folder: %w", err))
 	}
 	defer root.Close()
 
@@ -149,7 +149,7 @@ func (im *importer) importFolder(ctx context.Context, dir, last string) error {
 		return nil
 	})
 	if err != nil {
-		return invalid(err)
+		return protocol.InvalidParams(err)
 	}
 	// ponytail: if last is gone, the import starts over; the core skips items it has.
 	start := slices.Index(files, last) + 1

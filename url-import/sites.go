@@ -26,7 +26,7 @@ func isLorebook(entity string) (bool, error) {
 	case protocol.KindLorebook:
 		return true, nil
 	}
-	return false, invalid(fmt.Errorf("entity %q is not %s or %s", entity, protocol.KindCard, protocol.KindLorebook))
+	return false, protocol.InvalidParams(fmt.Errorf("entity %q is not %s or %s", entity, protocol.KindCard, protocol.KindLorebook))
 }
 
 // pageSource reads a page URL as its source, with the URL of the page as given.
@@ -50,7 +50,7 @@ func pageSource(raw string) (protocol.Source, bool) {
 func detectSources(raw json.RawMessage) (any, error) {
 	var p protocol.SitesDetectParams
 	if err := json.Unmarshal(raw, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	lorebook, err := isLorebook(p.Entity)
 	if err != nil {
@@ -60,7 +60,7 @@ func detectSources(raw json.RawMessage) (any, error) {
 	dec := json.NewDecoder(bytes.NewReader(p.Data))
 	dec.UseNumber()
 	if err := dec.Decode(&data); err != nil || data == nil {
-		return nil, invalid(errors.New("data must be an object"))
+		return nil, protocol.InvalidParams(errors.New("data must be an object"))
 	}
 	out := []protocol.Source{}
 	add := func(s protocol.Source) {
@@ -91,14 +91,14 @@ func detectSources(raw json.RawMessage) (any, error) {
 func parseSource(raw json.RawMessage) (any, error) {
 	var p protocol.SitesParseParams
 	if err := json.Unmarshal(raw, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	lorebook, err := isLorebook(p.Entity)
 	if err != nil {
 		return nil, err
 	}
 	if (p.URL != "") == (p.Kind != "" || p.Ref != "") {
-		return nil, invalid(errors.New("send a url, or a kind and ref, not both"))
+		return nil, protocol.InvalidParams(errors.New("send a url, or a kind and ref, not both"))
 	}
 	kind, ref := p.Kind, p.Ref
 	if p.URL != "" {
@@ -114,7 +114,7 @@ func parseSource(raw json.RawMessage) (any, error) {
 	}
 	s, ok := toSource(ref, lorebook)
 	if !ok {
-		return nil, invalid(fmt.Errorf("%q is not a valid %s ref for a %s", ref, kind, p.Entity))
+		return nil, protocol.InvalidParams(fmt.Errorf("%q is not a valid %s ref for a %s", ref, kind, p.Entity))
 	}
 	return protocol.SitesParseResult{Source: &s}, nil
 }

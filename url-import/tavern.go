@@ -15,7 +15,7 @@ const tavernCards = "https://ct-cards.storage.character-tavern.com/"
 func tavern(ctx context.Context, f *fetcher, u *url.URL) (found, error) {
 	author, slug, ok := tavernPage(u.Path)
 	if !ok {
-		return found{}, invalid(errors.New("a Character Tavern URL looks like https://character-tavern.com/character/{author}/{slug}"))
+		return found{}, protocol.InvalidParams(errors.New("a Character Tavern URL looks like https://character-tavern.com/character/{author}/{slug}"))
 	}
 	ref := url.PathEscape(author) + "/" + url.PathEscape(slug)
 	// Without action=download the card chunks come back as zTXt, which card.Decode doesn't read.

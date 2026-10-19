@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/inkandale/innkeeper/protocol"
@@ -24,10 +25,10 @@ func (srv *server) records(ctx context.Context, in *instance, method string, par
 		Path   string          `json:"path"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, invalid("%v", err)
+		return nil, protocol.InvalidParams(err)
 	}
 	if p.Type != skillType {
-		return nil, invalid("unknown record type %q", p.Type)
+		return nil, protocol.InvalidParams(fmt.Errorf("unknown record type %q", p.Type))
 	}
 	if in.store == nil {
 		return nil, errNoDatabase
@@ -53,7 +54,7 @@ func (srv *server) records(ctx context.Context, in *instance, method string, par
 	case protocol.MethodRecordsPut:
 		sk := skill{Enabled: true}
 		if err := json.Unmarshal(p.Record, &sk); err != nil {
-			return nil, invalid("record: %v", err)
+			return nil, protocol.InvalidParams(fmt.Errorf("record: %v", err))
 		}
 		if err := sk.check(); err != nil {
 			return nil, err
@@ -91,7 +92,7 @@ func importSkill(ctx context.Context, url, path string) (skill, error) {
 		return fetchSkill(ctx, url)
 	}
 	if path == "" {
-		return skill{}, invalid("import needs a url or a path")
+		return skill{}, protocol.InvalidParams(errors.New("import needs a url or a path"))
 	}
 	f, err := os.Open(path)
 	if err != nil {
@@ -114,7 +115,7 @@ func recordError(id string, err error) error {
 	case errors.Is(err, errSkillNotFound):
 		return protocol.NewError(protocol.CodeRemoteNotFound, "no skill "+id, false)
 	case errors.Is(err, errSkillExists):
-		return invalid("a skill with that name exists; rename this one or edit the existing skill")
+		return protocol.InvalidParams(errors.New("a skill with that name exists; rename this one or edit the existing skill"))
 	}
 	return err
 }

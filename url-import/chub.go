@@ -17,7 +17,7 @@ const chubAPI = "https://api.chub.ai"
 func chub(ctx context.Context, f *fetcher, u *url.URL) (found, error) {
 	dir, user, slug, ok := chubPage(u.Path)
 	if !ok {
-		return found{}, invalid(errors.New("a chub.ai URL looks like https://chub.ai/characters/{user}/{slug} or https://chub.ai/lorebooks/{user}/{slug}"))
+		return found{}, protocol.InvalidParams(errors.New("a chub.ai URL looks like https://chub.ai/characters/{user}/{slug} or https://chub.ai/lorebooks/{user}/{slug}"))
 	}
 	var meta struct {
 		Node struct {

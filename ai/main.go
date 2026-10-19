@@ -7,15 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
-	"sync/atomic"
 
 	"github.com/inkandale/innkeeper/protocol"
 	anyllm "github.com/mozilla-ai/any-llm-go"
 )
-
-const version = "0.2.1"
 
 // connection is what initialize configured. llm is nil for the empty config
 // the core's settings process starts with.
@@ -26,49 +22,29 @@ type connection struct {
 	apiKey string
 }
 
-type server struct {
-	conn *protocol.Conn
-	// Set by initialize; requests run on other goroutines.
-	cur atomic.Pointer[connection]
-}
-
 func main() {
-	srv := &server{}
-	srv.conn = protocol.NewConn(os.Stdin, os.Stdout, srv.handle)
-	if err := srv.conn.Run(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	protocol.Serve(plugin())
 }
 
-func (srv *server) handle(ctx context.Context, method string, params json.RawMessage) (any, error) {
-	switch method {
-	case protocol.MethodInitialize:
-		var p protocol.InitializeParams
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, invalid("%v", err)
-		}
-		c, err := connect(p.Config, p.Secrets["api_key"])
-		if err != nil {
-			return nil, err
-		}
-		srv.cur.Store(c)
-		return protocol.InitializeResult{Protocol: protocol.Version, Name: "ai", Version: version,
-			Capabilities: []string{"ai", "settings"}, Services: c.services()}, nil
-	case protocol.MethodShutdown:
-		return nil, nil
-	case protocol.MethodAIChat:
-		return srv.chat(ctx, params)
-	case protocol.MethodAIEmbed:
-		return srv.embed(ctx, params)
-	case protocol.MethodAIDecide:
-		return srv.decide(ctx, params)
-	case protocol.MethodSettingsOptions:
-		return options(ctx, params)
-	case protocol.MethodSettingsRun:
-		return runSetting(ctx, params)
+// plugin answers each call with the connection initialize configured.
+func plugin() protocol.Plugin[connection] {
+	return protocol.Plugin[connection]{
+		Init: func(_ context.Context, p protocol.InitializeParams) (*connection, error) {
+			return connect(p.Config, p.Secrets["api_key"])
+		},
+		Methods: map[string]func(*connection, context.Context, json.RawMessage) (any, error){
+			protocol.MethodAIChat:   (*connection).chat,
+			protocol.MethodAIEmbed:  (*connection).embed,
+			protocol.MethodAIDecide: (*connection).decide,
+			protocol.MethodSettingsOptions: func(_ *connection, ctx context.Context, params json.RawMessage) (any, error) {
+				return options(ctx, params)
+			},
+			protocol.MethodSettingsRun: func(_ *connection, ctx context.Context, params json.RawMessage) (any, error) {
+				return runSetting(ctx, params)
+			},
+		},
+		Services: (*connection).services,
 	}
-	return nil, protocol.MethodNotFound(method)
 }
 
 // connect builds the connection a config describes. An empty config gives
@@ -105,15 +81,10 @@ func (c *connection) services() []string {
 	return c.settings.services()
 }
 
-// offering returns the connection when it offers method.
-func (srv *server) offering(method string) (*connection, error) {
-	c := srv.cur.Load()
-	if c == nil || !slices.Contains(c.services(), method) {
-		return nil, protocol.MethodNotFound(method)
+// offering returns MethodNotFound unless the connection offers method.
+func (c *connection) offering(method string) error {
+	if !slices.Contains(c.services(), method) {
+		return protocol.MethodNotFound(method)
 	}
-	return c, nil
-}
-
-func invalid(format string, args ...any) error {
-	return protocol.NewError(protocol.CodeInvalidParams, fmt.Sprintf(format, args...), false)
+	return nil
 }

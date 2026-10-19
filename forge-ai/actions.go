@@ -102,26 +102,22 @@ type run struct {
 	note string
 }
 
-func invalid(format string, args ...any) error {
-	return protocol.NewError(-32602, fmt.Sprintf(format, args...), false)
-}
-
 // parseRun checks the params against the action's declaration.
 func parseRun(p protocol.ActionRunParams) (*run, error) {
 	a, ok := findAction(p.Action)
 	if !ok {
-		return nil, invalid("unknown action %q", p.Action)
+		return nil, protocol.InvalidParams(fmt.Errorf("unknown action %q", p.Action))
 	}
 	r := &run{action: a, ActionRunParams: p}
 	if len(a.Fields) > 0 && !slices.Contains(a.Fields, p.Field) && (p.Field != "" || !a.WholeCard) {
-		return nil, invalid("action %s doesn't run on field %q", a.ID, p.Field)
+		return nil, protocol.InvalidParams(fmt.Errorf("action %s doesn't run on field %q", a.ID, p.Field))
 	}
 	if a.Instruction && strings.TrimSpace(p.Instruction) == "" {
-		return nil, invalid("action %s needs an instruction", a.ID)
+		return nil, protocol.InvalidParams(fmt.Errorf("action %s needs an instruction", a.ID))
 	}
 	if a.Applies != protocol.ApplyNew {
 		if err := json.Unmarshal(p.Entity.Data, &r.draft); err != nil || r.draft == nil {
-			return nil, invalid("action %s needs the %s's data", a.ID, a.Applies)
+			return nil, protocol.InvalidParams(fmt.Errorf("action %s needs the %s's data", a.ID, a.Applies))
 		}
 	}
 	var inputs struct {
@@ -130,7 +126,7 @@ func parseRun(p protocol.ActionRunParams) (*run, error) {
 	}
 	if len(p.Inputs) > 0 {
 		if err := json.Unmarshal(p.Inputs, &inputs); err != nil {
-			return nil, invalid("inputs: %v", err)
+			return nil, protocol.InvalidParams(fmt.Errorf("inputs: %v", err))
 		}
 	}
 	r.pointOfView, r.count = inputs.PointOfView, inputs.Count
@@ -140,11 +136,11 @@ func parseRun(p protocol.ActionRunParams) (*run, error) {
 			r.pointOfView = "third"
 		}
 		if !slices.Contains([]string{"first", "third", "scenario"}, r.pointOfView) {
-			return nil, invalid("point_of_view must be first, third, or scenario")
+			return nil, protocol.InvalidParams(errors.New("point_of_view must be first, third, or scenario"))
 		}
 	case "change-pov":
 		if r.pointOfView != "first" && r.pointOfView != "third" {
-			return nil, invalid("point_of_view must be first or third")
+			return nil, protocol.InvalidParams(errors.New("point_of_view must be first or third"))
 		}
 	case "examples", "alternate-greetings":
 		r.count = between(r.count, 3, 10)

@@ -24,7 +24,7 @@ var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 func risu(ctx context.Context, f *fetcher, u *url.URL) (found, error) {
 	id, ok := risuPage(u.Path)
 	if !ok {
-		return found{}, invalid(errors.New("a RisuRealm URL looks like https://realm.risuai.net/character/{uuid}"))
+		return found{}, protocol.InvalidParams(errors.New("a RisuRealm URL looks like https://realm.risuai.net/character/{uuid}"))
 	}
 	item := risuURL(id)
 	var page struct {

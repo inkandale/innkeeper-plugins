@@ -49,10 +49,10 @@ func evaluatePrompt(s settings) (string, error) {
 func (srv *server) enrich(ctx context.Context, in *instance, params json.RawMessage) (*protocol.EnrichRunResult, error) {
 	var p protocol.EnrichRunParams
 	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, invalid("%v", err)
+		return nil, protocol.InvalidParams(err)
 	}
 	if len(p.Revisions) == 0 || len(p.Revisions) > protocol.MaxEnrichBatch {
-		return nil, invalid("revisions must hold 1 to %d", protocol.MaxEnrichBatch)
+		return nil, protocol.InvalidParams(fmt.Errorf("revisions must hold 1 to %d", protocol.MaxEnrichBatch))
 	}
 	if in.err != nil {
 		return nil, in.err
@@ -73,7 +73,7 @@ func (srv *server) enrich(ctx context.Context, in *instance, params json.RawMess
 			defer wg.Done()
 			defer func() { <-slots }()
 			n := started.Add(1)
-			_ = srv.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: p.Run, Done: n - 1, Total: int64(len(p.Revisions)),
+			_ = in.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: p.Run, Done: n - 1, Total: int64(len(p.Revisions)),
 				Message: fmt.Sprintf("Evaluating %s (%d of %d)", revisionName(rev), n, len(p.Revisions))})
 			values, vm, err := srv.scores(ctx, in, p.Run, rev)
 			if err != nil {
@@ -102,7 +102,7 @@ type valueMeta struct {
 // decision under the confidence threshold falls back to the chat model.
 func (srv *server) scores(ctx context.Context, in *instance, run string, rev protocol.EnrichRevision) (map[string]json.RawMessage, valueMeta, error) {
 	if in.settings.Decide != 0 {
-		values, vm, err := srv.decideScores(ctx, in.settings, rev)
+		values, vm, err := srv.decideScores(ctx, in, rev)
 		if err == nil || ctx.Err() != nil {
 			return values, vm, err
 		}

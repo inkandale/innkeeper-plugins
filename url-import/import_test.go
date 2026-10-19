@@ -164,7 +164,7 @@ func TestFetchErrors(t *testing.T) {
 	if ua, err := f.get(context.Background(), "Example", "https://example.test/hop"); err != nil || len(ua) == 0 {
 		t.Errorf("https redirect: %q, %v", ua, err)
 	}
-	if ua, err := f.get(context.Background(), "Example", "https://example.test/ua"); err != nil || string(ua) != "innkeeper-url-import/"+version {
+	if ua, err := f.get(context.Background(), "Example", "https://example.test/ua"); err != nil || string(ua) != "innkeeper-url-import" {
 		t.Errorf("User-Agent = %q, %v", ua, err)
 	}
 }

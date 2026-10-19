@@ -52,7 +52,7 @@ func follow(ctx context.Context, f *fetcher, remoteID string, lorebook bool) (fo
 func getCard(ctx context.Context, f *fetcher, blobTmp string, raw json.RawMessage) (any, error) {
 	var p protocol.TargetGetParams
 	if err := json.Unmarshal(raw, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	got, err := follow(ctx, f, p.RemoteID, false)
 	if err != nil {
@@ -75,7 +75,7 @@ func getCard(ctx context.Context, f *fetcher, blobTmp string, raw json.RawMessag
 func getLorebook(ctx context.Context, f *fetcher, raw json.RawMessage) (any, error) {
 	var p protocol.TargetGetParams
 	if err := json.Unmarshal(raw, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	got, err := follow(ctx, f, p.RemoteID, true)
 	if err != nil {

@@ -159,7 +159,7 @@ func TestCancelBetweenSectionsStopsTheRun(t *testing.T) {
 			cancel() // The owner pressed Stop during the first section.
 		}
 	}
-	_, err := h.srv.wholeCard(ctx, h.srv.cur.Load(), wholeCardRun(t, "tighten"))
+	_, err := h.srv.wholeCard(ctx, h.in, wholeCardRun(t, "tighten"))
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}

@@ -13,22 +13,21 @@ import (
 	llmerrors "github.com/mozilla-ai/any-llm-go/errors"
 )
 
-func (srv *server) chat(ctx context.Context, params json.RawMessage) (any, error) {
-	c, err := srv.offering(protocol.MethodAIChat)
-	if err != nil {
+func (c *connection) chat(ctx context.Context, params json.RawMessage) (any, error) {
+	if err := c.offering(protocol.MethodAIChat); err != nil {
 		return nil, err
 	}
 	var p protocol.AIChatParams
 	if err := json.Unmarshal(params, &p); err != nil || len(p.Messages) == 0 {
-		return nil, invalid("ai.chat needs messages")
+		return nil, protocol.InvalidParams(errors.New("ai.chat needs messages"))
 	}
 	req, err := completionParams(c.settings.Model, p)
 	if err != nil {
-		return nil, invalid("%v", err)
+		return nil, protocol.InvalidParams(err)
 	}
 	text, calls, err := stream(ctx, c, req, func(piece string) {
 		if p.Run != "" {
-			_ = srv.conn.Notify(protocol.NotifyAIDelta, protocol.AIDelta{Run: p.Run, Text: piece})
+			_ = protocol.Peer(ctx).Notify(protocol.NotifyAIDelta, protocol.AIDelta{Run: p.Run, Text: piece})
 		}
 	})
 	if err != nil {

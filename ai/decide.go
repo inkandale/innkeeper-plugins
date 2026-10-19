@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -23,14 +24,13 @@ const chatConfidence = 0.5
 
 // decide answers ai.decide through the server's /v1/systemone when the
 // connection ticks decide, and through its chat model otherwise.
-func (srv *server) decide(ctx context.Context, params json.RawMessage) (any, error) {
-	c, err := srv.offering(protocol.MethodAIDecide)
-	if err != nil {
+func (c *connection) decide(ctx context.Context, params json.RawMessage) (any, error) {
+	if err := c.offering(protocol.MethodAIDecide); err != nil {
 		return nil, err
 	}
 	var p protocol.AIDecideParams
 	if err := json.Unmarshal(params, &p); err != nil || len(p.Questions) == 0 {
-		return nil, invalid("ai.decide needs questions")
+		return nil, protocol.InvalidParams(errors.New("ai.decide needs questions"))
 	}
 	if slices.Contains(c.settings.Kinds, "decide") {
 		return systemOne(ctx, c, p)
@@ -95,7 +95,7 @@ func decideByChat(ctx context.Context, c *connection, p protocol.AIDecideParams)
 	for id, q := range p.Questions {
 		names, err := optionNames(q)
 		if err != nil {
-			return res, invalid("%s: %v", id, err)
+			return res, protocol.InvalidParams(fmt.Errorf("%s: %v", id, err))
 		}
 		options[id] = names
 	}

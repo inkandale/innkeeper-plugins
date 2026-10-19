@@ -17,10 +17,10 @@ import (
 func options(ctx context.Context, params json.RawMessage) (any, error) {
 	var p protocol.SettingsOptionsParams
 	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, invalid("%v", err)
+		return nil, protocol.InvalidParams(err)
 	}
 	if p.Field != "/model" {
-		return nil, invalid("no choices for %s", p.Field)
+		return nil, protocol.InvalidParams(fmt.Errorf("no choices for %s", p.Field))
 	}
 	s, err := parseSettings(p.Config)
 	if err != nil {
@@ -82,10 +82,10 @@ const probeTimeout = 30 * time.Second
 func runSetting(ctx context.Context, params json.RawMessage) (any, error) {
 	var p protocol.SettingsRunParams
 	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, invalid("%v", err)
+		return nil, protocol.InvalidParams(err)
 	}
 	if p.Action != "test" {
-		return nil, invalid("no settings action %q", p.Action)
+		return nil, protocol.InvalidParams(fmt.Errorf("no settings action %q", p.Action))
 	}
 	apiKey := p.Secrets["api_key"]
 	c, err := connect(p.Config, apiKey)

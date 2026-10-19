@@ -67,21 +67,21 @@ type notifyFunc func(method string, params any) error
 func run(ctx context.Context, f *fetcher, blobTmp string, notify notifyFunc, raw json.RawMessage) (any, error) {
 	var p protocol.ImportRunParams
 	if err := json.Unmarshal(raw, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	var ps params
 	dec := json.NewDecoder(bytes.NewReader(p.Params))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&ps); err != nil {
-		return nil, invalid(fmt.Errorf(`params must be {"url": "<page URL>"}: %w`, err))
+		return nil, protocol.InvalidParams(fmt.Errorf(`params must be {"url": "<page URL>"}: %w`, err))
 	}
 	u, err := url.Parse(strings.TrimSpace(ps.URL))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		return nil, invalid(fmt.Errorf("params: url %q is not an http or https URL", ps.URL))
+		return nil, protocol.InvalidParams(fmt.Errorf("params: url %q is not an http or https URL", ps.URL))
 	}
 	site, ok := hosts[strings.ToLower(u.Hostname())]
 	if !ok {
-		return nil, invalid(fmt.Errorf("no importer for %s", u.Hostname()))
+		return nil, protocol.InvalidParams(fmt.Errorf("no importer for %s", u.Hostname()))
 	}
 	got, err := site.resolve(ctx, f, u)
 	if err != nil {

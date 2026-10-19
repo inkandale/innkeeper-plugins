@@ -119,8 +119,11 @@ func start(t *testing.T, config map[string]any) (*host, protocol.InitializeResul
 	t.Helper()
 	toPlugin, fromHost := io.Pipe()
 	toHost, fromPlugin := io.Pipe()
-	srv := &server{}
-	srv.conn = protocol.NewConn(toPlugin, fromPlugin, srv.handle)
+	m, err := protocol.LoadManifest(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pluginConn := protocol.NewConn(toPlugin, fromPlugin, plugin().Handler(m))
 	h := &host{}
 	h.conn = protocol.NewConn(toHost, fromHost, func(ctx context.Context, method string, params json.RawMessage) (any, error) {
 		if method != protocol.NotifyAIDelta {
@@ -134,7 +137,7 @@ func start(t *testing.T, config map[string]any) (*host, protocol.InitializeResul
 		return nil, nil
 	})
 	ctx, cancel := context.WithCancel(context.Background())
-	go srv.conn.Run(ctx)
+	go pluginConn.Run(ctx)
 	go h.conn.Run(ctx)
 	t.Cleanup(func() {
 		cancel()
@@ -142,7 +145,7 @@ func start(t *testing.T, config map[string]any) (*host, protocol.InitializeResul
 		fromPlugin.Close()
 	})
 	var res protocol.InitializeResult
-	err := h.conn.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{Protocol: 1, Config: config}, &res)
+	err = h.conn.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{Protocol: 1, Config: config}, &res)
 	return h, res, err
 }
 

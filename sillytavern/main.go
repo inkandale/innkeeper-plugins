@@ -6,15 +6,9 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"os"
-	"sync/atomic"
 
 	"github.com/inkandale/innkeeper/protocol"
 )
-
-const version = "0.3.1"
 
 type plugin struct {
 	c       *client
@@ -32,53 +26,29 @@ func describe() protocol.TargetInfo {
 }
 
 func main() {
-	// Set by initialize; requests run on other goroutines.
-	var cur atomic.Pointer[plugin]
-	handler := func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-		switch method {
-		case protocol.MethodInitialize:
-			var p protocol.InitializeParams
-			if err := json.Unmarshal(params, &p); err != nil {
-				return nil, invalid(err)
-			}
+	protocol.Serve(protocol.Plugin[plugin]{
+		Init: func(_ context.Context, p protocol.InitializeParams) (*plugin, error) {
 			url, _ := p.Config["url"].(string)
 			auth, _ := p.Config["auth"].(string)
 			username, _ := p.Config["username"].(string)
-			cur.Store(&plugin{newClient(url, auth, username, p.Secrets["password"]), p.BlobTmp})
-			return protocol.InitializeResult{Protocol: protocol.Version, Name: "sillytavern", Version: version,
-				Capabilities: []string{"push", "pull"}}, nil
-		case protocol.MethodShutdown:
-			return nil, nil
-		case protocol.MethodTargetDescribe:
-			return describe(), nil
-		}
-		p := cur.Load()
-		if p == nil {
-			return nil, errors.New(method + " before initialize")
-		}
-		switch method {
-		case protocol.MethodTargetPut:
-			return p.put(ctx, params)
-		case protocol.MethodTargetGet:
-			return p.get(ctx, params)
-		case protocol.MethodTargetPutLorebook:
-			return p.putLorebook(ctx, params)
-		case protocol.MethodTargetGetLorebook:
-			return p.getLorebook(ctx, params)
-		case protocol.MethodTargetList:
-			return p.list(ctx)
-		case protocol.MethodTargetListLorebooks:
-			return p.listLorebooks(ctx)
-		case protocol.MethodTargetDelete:
-			return p.remove(ctx, params)
-		case protocol.MethodTargetDeleteLorebook:
-			return p.removeLorebook(ctx, params)
-		}
-		return nil, protocol.MethodNotFound(method)
-	}
-	conn := protocol.NewConn(os.Stdin, os.Stdout, handler)
-	if err := conn.Run(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+			return &plugin{newClient(url, auth, username, p.Secrets["password"]), p.BlobTmp}, nil
+		},
+		Methods: map[string]func(*plugin, context.Context, json.RawMessage) (any, error){
+			protocol.MethodTargetDescribe: func(*plugin, context.Context, json.RawMessage) (any, error) {
+				return describe(), nil
+			},
+			protocol.MethodTargetPut:         (*plugin).put,
+			protocol.MethodTargetGet:         (*plugin).get,
+			protocol.MethodTargetPutLorebook: (*plugin).putLorebook,
+			protocol.MethodTargetGetLorebook: (*plugin).getLorebook,
+			protocol.MethodTargetList: func(p *plugin, ctx context.Context, _ json.RawMessage) (any, error) {
+				return p.list(ctx)
+			},
+			protocol.MethodTargetListLorebooks: func(p *plugin, ctx context.Context, _ json.RawMessage) (any, error) {
+				return p.listLorebooks(ctx)
+			},
+			protocol.MethodTargetDelete:         (*plugin).remove,
+			protocol.MethodTargetDeleteLorebook: (*plugin).removeLorebook,
+		},
+	})
 }

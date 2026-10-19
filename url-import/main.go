@@ -6,61 +6,37 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"os"
-	"sync/atomic"
 
 	"github.com/inkandale/innkeeper/protocol"
 )
 
-const version = "0.3.1"
-
 func main() {
-	// Set by initialize; requests run on other goroutines.
-	var blobTmp atomic.Pointer[string]
-	var conn *protocol.Conn
 	f := newFetcher()
-	handler := func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-		switch method {
-		case protocol.MethodInitialize:
-			var p protocol.InitializeParams
-			if err := json.Unmarshal(params, &p); err != nil {
-				return nil, invalid(err)
-			}
-			blobTmp.Store(&p.BlobTmp)
-			return protocol.InitializeResult{Protocol: protocol.Version, Name: "url-import", Version: version,
-				Capabilities: []string{"import", "sites", "pull"}}, nil
-		case protocol.MethodShutdown:
-			return nil, nil
-		case protocol.MethodImportRun:
-			tmp := blobTmp.Load()
-			if tmp == nil {
-				return nil, errors.New("import.run before initialize")
-			}
-			return run(ctx, f, *tmp, conn.Notify, params)
-		case protocol.MethodSitesDetect:
-			return detectSources(params)
-		case protocol.MethodSitesParse:
-			return parseSource(params)
-		case protocol.MethodTargetDescribe:
-			return targetInfo, nil
-		case protocol.MethodTargetList, protocol.MethodTargetListLorebooks:
-			return noItems, nil
-		case protocol.MethodTargetGet:
-			tmp := blobTmp.Load()
-			if tmp == nil {
-				return nil, errors.New("target.get before initialize")
-			}
-			return getCard(ctx, f, *tmp, params)
-		case protocol.MethodTargetGetLorebook:
-			return getLorebook(ctx, f, params)
-		}
-		return nil, protocol.MethodNotFound(method)
-	}
-	conn = protocol.NewConn(os.Stdin, os.Stdout, handler)
-	if err := conn.Run(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	protocol.Serve(protocol.Plugin[string]{
+		Init: func(_ context.Context, p protocol.InitializeParams) (*string, error) { return &p.BlobTmp, nil },
+		Methods: map[string]func(*string, context.Context, json.RawMessage) (any, error){
+			protocol.MethodImportRun: func(blobTmp *string, ctx context.Context, params json.RawMessage) (any, error) {
+				return run(ctx, f, *blobTmp, protocol.Peer(ctx).Notify, params)
+			},
+			protocol.MethodSitesDetect: func(_ *string, _ context.Context, params json.RawMessage) (any, error) {
+				return detectSources(params)
+			},
+			protocol.MethodSitesParse: func(_ *string, _ context.Context, params json.RawMessage) (any, error) {
+				return parseSource(params)
+			},
+			protocol.MethodTargetDescribe: func(*string, context.Context, json.RawMessage) (any, error) {
+				return targetInfo, nil
+			},
+			protocol.MethodTargetList:          listNothing,
+			protocol.MethodTargetListLorebooks: listNothing,
+			protocol.MethodTargetGet: func(blobTmp *string, ctx context.Context, params json.RawMessage) (any, error) {
+				return getCard(ctx, f, *blobTmp, params)
+			},
+			protocol.MethodTargetGetLorebook: func(_ *string, ctx context.Context, params json.RawMessage) (any, error) {
+				return getLorebook(ctx, f, params)
+			},
+		},
+	})
 }
+
+func listNothing(*string, context.Context, json.RawMessage) (any, error) { return noItems, nil }

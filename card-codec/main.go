@@ -5,59 +5,38 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"os"
-	"sync/atomic"
 
 	"github.com/inkandale/innkeeper-plugins/card"
 	"github.com/inkandale/innkeeper-plugins/internal/pluginio"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
-const version = "0.2.1"
-
 func main() {
-	// Set by initialize; requests run on other goroutines.
-	var blobTmp atomic.Value
-	handler := func(_ context.Context, method string, params json.RawMessage) (any, error) {
-		tmp, _ := blobTmp.Load().(string)
-		switch method {
-		case protocol.MethodInitialize:
-			var p protocol.InitializeParams
-			if err := json.Unmarshal(params, &p); err != nil {
-				return nil, invalid(err)
-			}
-			blobTmp.Store(p.BlobTmp)
-			return protocol.InitializeResult{Protocol: protocol.Version, Name: "card-codec", Version: version,
-				Capabilities: []string{"codec"}}, nil
-		case protocol.MethodShutdown:
-			return nil, nil
-		case protocol.MethodCodecDecode:
-			return decode(tmp, params)
-		case protocol.MethodCodecEncode:
-			return encode(tmp, params)
-		}
-		return nil, protocol.MethodNotFound(method)
-	}
-	conn := protocol.NewConn(os.Stdin, os.Stdout, handler)
-	if err := conn.Run(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	protocol.Serve(protocol.Plugin[string]{
+		Init: func(_ context.Context, p protocol.InitializeParams) (*string, error) { return &p.BlobTmp, nil },
+		Methods: map[string]func(*string, context.Context, json.RawMessage) (any, error){
+			protocol.MethodCodecDecode: func(tmp *string, _ context.Context, params json.RawMessage) (any, error) {
+				return decode(*tmp, params)
+			},
+			protocol.MethodCodecEncode: func(tmp *string, _ context.Context, params json.RawMessage) (any, error) {
+				return encode(*tmp, params)
+			},
+		},
+	})
 }
 
 func decode(tmp string, params json.RawMessage) (any, error) {
 	var p protocol.CodecDecodeParams
 	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	b, err := pluginio.ReadFile(p.Path)
 	if err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	c, img, err := card.Decode(b)
 	if err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	res := protocol.CodecDecodeResult{Card: c}
 	if img != nil {
@@ -71,7 +50,7 @@ func decode(tmp string, params json.RawMessage) (any, error) {
 func encode(tmp string, params json.RawMessage) (any, error) {
 	var p protocol.CodecEncodeParams
 	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	var avatar []byte
 	if p.Avatar != "" {
@@ -82,15 +61,11 @@ func encode(tmp string, params json.RawMessage) (any, error) {
 	}
 	out, ext, err := card.Encode(p.Card, p.Format, avatar)
 	if err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	path, err := pluginio.WriteTmp(tmp, "card-*."+ext, out)
 	if err != nil {
 		return nil, err
 	}
 	return protocol.CodecEncodeResult{Path: path, Extension: ext}, nil
-}
-
-func invalid(err error) error {
-	return protocol.NewError(protocol.CodeInvalidParams, err.Error(), false)
 }

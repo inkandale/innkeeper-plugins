@@ -103,7 +103,7 @@ func (f *fetcher) get(ctx context.Context, site, url string) ([]byte, error) {
 		return nil, err
 	}
 	// chub.ai blocks curl/ agents, and JanitorAI blocks Go's default.
-	req.Header.Set("User-Agent", "innkeeper-url-import/"+version)
+	req.Header.Set("User-Agent", "innkeeper-url-import")
 	resp, err := f.http.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -164,10 +164,6 @@ func (f *fetcher) getJSON(ctx context.Context, site, url string, v any) error {
 		return permanent(fmt.Errorf("%s sent unreadable JSON: %w", site, err))
 	}
 	return nil
-}
-
-func invalid(err error) error {
-	return protocol.NewError(protocol.CodeInvalidParams, err.Error(), false)
 }
 
 func retryable(err error) error {

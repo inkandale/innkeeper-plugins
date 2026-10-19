@@ -56,31 +56,31 @@ type notifyFunc func(method string, params any) error
 func run(ctx context.Context, e *env, notify notifyFunc, raw json.RawMessage) (any, error) {
 	var p protocol.ImportRunParams
 	if err := json.Unmarshal(raw, &p); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	var ps params
 	dec := json.NewDecoder(bytes.NewReader(p.Params))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&ps); err != nil || ps.Dump == "" {
-		return nil, invalid(fmt.Errorf(`params must be {"dump": "<path of the SQL dump>"}: %v`, err))
+		return nil, protocol.InvalidParams(fmt.Errorf(`params must be {"dump": "<path of the SQL dump>"}: %v`, err))
 	}
 	var at checkpoint
 	if len(p.Checkpoint) > 0 && string(p.Checkpoint) != "null" {
 		if err := json.Unmarshal(p.Checkpoint, &at); err != nil {
-			return nil, invalid(fmt.Errorf("checkpoint: %w", err))
+			return nil, protocol.InvalidParams(fmt.Errorf("checkpoint: %w", err))
 		}
 	}
 	for _, dir := range e.images {
 		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-			return nil, invalid(fmt.Errorf("config images: %s is not a folder; is the archive mounted?", dir))
+			return nil, protocol.InvalidParams(fmt.Errorf("config images: %s is not a folder; is the archive mounted?", dir))
 		}
 	}
 	d, err := openDump(ps.Dump, at)
 	if errors.Is(err, errDumpChanged) {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	if err != nil {
-		return nil, invalid(fmt.Errorf("params dump: %w", err))
+		return nil, protocol.InvalidParams(fmt.Errorf("params dump: %w", err))
 	}
 	defer d.Close()
 	parents := map[string]parent{}

@@ -6,15 +6,9 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"os"
-	"sync/atomic"
 
 	"github.com/inkandale/innkeeper/protocol"
 )
-
-const version = "0.3.1"
 
 type plugin struct {
 	c       *client
@@ -34,56 +28,36 @@ func describe() protocol.TargetInfo {
 }
 
 func main() {
-	// Set by initialize; requests run on other goroutines.
-	var cur atomic.Pointer[plugin]
-	handler := func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-		switch method {
-		case protocol.MethodInitialize:
-			var p protocol.InitializeParams
-			if err := json.Unmarshal(params, &p); err != nil {
-				return nil, invalid(err)
-			}
+	protocol.Serve(protocol.Plugin[plugin]{
+		Init: func(_ context.Context, p protocol.InitializeParams) (*plugin, error) {
 			url, _ := p.Config["url"].(string)
 			username, _ := p.Config["username"].(string)
-			cur.Store(&plugin{newClient(url, username, p.Secrets["password"]), p.BlobTmp})
-			return protocol.InitializeResult{Protocol: protocol.Version, Name: "lumiverse", Version: version,
-				Capabilities: []string{"push", "pull"}}, nil
-		case protocol.MethodShutdown:
-			return nil, nil
-		case protocol.MethodTargetDescribe:
-			return describe(), nil
-		}
-		p := cur.Load()
-		if p == nil {
-			return nil, errors.New(method + " before initialize")
-		}
-		switch method {
-		case protocol.MethodTargetPut:
-			return p.put(ctx, params)
-		case protocol.MethodTargetGet:
-			return p.get(ctx, params)
-		case protocol.MethodTargetPutLorebook:
-			return p.putLorebook(ctx, params)
-		case protocol.MethodTargetGetLorebook:
-			return p.getLorebook(ctx, params)
-		case protocol.MethodTargetList:
-			// By name: the default order moves a character up when it's chatted with.
-			return p.list(ctx, "/characters/summary?sort=name&direction=asc")
-		case protocol.MethodTargetListLorebooks:
-			// ponytail: Lumiverse orders these by updated_at only, so a book
-			// edited mid-listing can be skipped or repeated.
-			return p.list(ctx, "/world-books?")
-		case protocol.MethodTargetDelete:
-			// Lumiverse deletes the character's one-on-one chats with it.
-			return p.remove(ctx, "/characters/", params)
-		case protocol.MethodTargetDeleteLorebook:
-			return p.remove(ctx, "/world-books/", params)
-		}
-		return nil, protocol.MethodNotFound(method)
-	}
-	conn := protocol.NewConn(os.Stdin, os.Stdout, handler)
-	if err := conn.Run(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+			return &plugin{newClient(url, username, p.Secrets["password"]), p.BlobTmp}, nil
+		},
+		Methods: map[string]func(*plugin, context.Context, json.RawMessage) (any, error){
+			protocol.MethodTargetDescribe: func(*plugin, context.Context, json.RawMessage) (any, error) {
+				return describe(), nil
+			},
+			protocol.MethodTargetPut:         (*plugin).put,
+			protocol.MethodTargetGet:         (*plugin).get,
+			protocol.MethodTargetPutLorebook: (*plugin).putLorebook,
+			protocol.MethodTargetGetLorebook: (*plugin).getLorebook,
+			protocol.MethodTargetList: func(p *plugin, ctx context.Context, _ json.RawMessage) (any, error) {
+				// By name: the default order moves a character up when it's chatted with.
+				return p.list(ctx, "/characters/summary?sort=name&direction=asc")
+			},
+			protocol.MethodTargetListLorebooks: func(p *plugin, ctx context.Context, _ json.RawMessage) (any, error) {
+				// ponytail: Lumiverse orders these by updated_at only, so a book
+				// edited mid-listing can be skipped or repeated.
+				return p.list(ctx, "/world-books?")
+			},
+			protocol.MethodTargetDelete: func(p *plugin, ctx context.Context, params json.RawMessage) (any, error) {
+				// Lumiverse deletes the character's one-on-one chats with it.
+				return p.remove(ctx, "/characters/", params)
+			},
+			protocol.MethodTargetDeleteLorebook: func(p *plugin, ctx context.Context, params json.RawMessage) (any, error) {
+				return p.remove(ctx, "/world-books/", params)
+			},
+		},
+	})
 }
