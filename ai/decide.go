@@ -76,7 +76,8 @@ func systemOne(ctx context.Context, c *connection, p protocol.AIDecideParams) (p
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return res, protocol.NewError(protocol.CodeInternalError, "systemone: unreadable reply: "+err.Error(), true)
 	}
-	for id := range p.Questions {
+	// Sorted so the error names the same missing answer every time.
+	for _, id := range slices.Sorted(maps.Keys(p.Questions)) {
 		if _, ok := res.Answers[id]; !ok {
 			return res, protocol.NewError(protocol.CodeInternalError, "systemone: no answer for "+id, true)
 		}
