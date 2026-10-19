@@ -43,9 +43,9 @@ func options(ctx context.Context, params json.RawMessage) (any, error) {
 		ids = append(ids, m.ID)
 	}
 	slices.Sort(ids)
-	out := protocol.SettingsOptionsResult{Options: []protocol.SettingsOption{}}
+	out := protocol.SettingsOptionsResult{Options: []protocol.Option{}}
 	for _, id := range slices.Compact(ids) {
-		out.Options = append(out.Options, protocol.SettingsOption{Value: id})
+		out.Options = append(out.Options, protocol.Option{Value: id})
 	}
 	return out, nil
 }
