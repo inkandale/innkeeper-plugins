@@ -31,11 +31,11 @@ type page[T any] struct {
 func (p *plugin) putLorebook(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetPutLorebookParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	var book map[string]any
 	if err := json.Unmarshal(in.Lorebook, &book); err != nil || book == nil {
-		return nil, invalid(fmt.Errorf("lorebook is not a JSON object"))
+		return nil, protocol.InvalidParams(fmt.Errorf("lorebook is not a JSON object"))
 	}
 	id, key := in.RemoteID, in.Key
 	if id == "" && key != "" {
@@ -149,7 +149,7 @@ func (p *plugin) list(ctx context.Context, path string) (protocol.TargetListResu
 func (p *plugin) remove(ctx context.Context, path string, params json.RawMessage) (any, error) {
 	var in protocol.TargetDeleteParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	if err := p.c.call(ctx, "DELETE", path+url.PathEscape(in.RemoteID), nil, nil); err != nil {
 		return nil, err
@@ -310,7 +310,7 @@ func position(v any) any {
 func (p *plugin) getLorebook(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetGetParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	path := "/world-books/" + url.PathEscape(in.RemoteID)
 	var cur worldBook

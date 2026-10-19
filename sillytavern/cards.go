@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/inkandale/innkeeper-plugins/card"
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper-plugins/internal/pluginio"
 	"github.com/inkandale/innkeeper/protocol"
 )
@@ -46,17 +47,17 @@ func object(v any) map[string]any {
 func (p *plugin) put(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetPutParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	var c struct {
 		Data map[string]any `json:"data"`
 	}
 	if err := json.Unmarshal(in.Card, &c); err != nil || c.Data == nil {
-		return nil, invalid(errors.New("card has no data object"))
+		return nil, protocol.InvalidParams(errors.New("card has no data object"))
 	}
 	// Pushing without the others would drop their content from SillyTavern.
 	if n := len(in.LorebookRemoteIDs); n > 1 {
-		return nil, protocol.NewError(-32000, fmt.Sprintf("SillyTavern links a character to one lorebook, and this card has %d", n), false)
+		return nil, protocol.Fail(fmt.Sprintf("SillyTavern links a character to one lorebook, and this card has %d", n), false)
 	}
 	world := ""
 	if len(in.LorebookRemoteIDs) == 1 {
@@ -87,7 +88,7 @@ func (p *plugin) put(ctx context.Context, params json.RawMessage) (any, error) {
 func (p *plugin) remove(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetDeleteParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	if _, err := p.read(ctx, in.RemoteID); err != nil {
 		return nil, err
@@ -107,7 +108,7 @@ func (p *plugin) read(ctx context.Context, id string) (map[string]any, error) {
 	raw, _ := r["json_data"].(string)
 	var c map[string]any
 	if err := json.Unmarshal([]byte(raw), &c); err != nil {
-		return nil, protocol.NewError(-32000, id+": unreadable card: "+err.Error(), false)
+		return nil, protocol.Fail(id+": unreadable card: "+err.Error(), false)
 	}
 	// A V1 card has no data; the reply around json_data is it converted to V2.
 	if _, ok := c["data"].(map[string]any); !ok {
@@ -134,7 +135,7 @@ func (p *plugin) findCharacter(ctx context.Context, key string) (string, error) 
 		if it.Shallow {
 			// ponytail: one /get per character with lazyLoadCharacters on; fine for hundreds.
 			c, err := p.read(ctx, it.Avatar)
-			if notFound(err) {
+			if httpkit.NotFound(err) {
 				continue
 			}
 			if err != nil {
@@ -169,7 +170,7 @@ func (p *plugin) createCharacter(ctx context.Context, data map[string]any, world
 	}
 	// The route answers 200 when it fails.
 	if reply.Error || reply.FileName == "" {
-		return "", protocol.NewError(-32000, "SillyTavern couldn't import the card; its server log says why", false)
+		return "", protocol.Fail("SillyTavern couldn't import the card; its server log says why", false)
 	}
 	id := reply.FileName + ".png"
 	// The import strips the characters a file name can't hold from the
@@ -304,7 +305,7 @@ func cardPNG(data map[string]any, avatar string) ([]byte, error) {
 	if avatar != "" {
 		var err error
 		if img, err = pluginio.ReadFile(avatar); err != nil {
-			return nil, protocol.NewError(-32000, "read avatar: "+err.Error(), false)
+			return nil, protocol.Fail("read avatar: "+err.Error(), false)
 		}
 	}
 	raw, err := json.Marshal(map[string]any{"spec": "chara_card_v3", "spec_version": "3.0", "data": data})
@@ -313,7 +314,7 @@ func cardPNG(data map[string]any, avatar string) ([]byte, error) {
 	}
 	out, _, err := card.Encode(raw, card.FormatPNG, img)
 	if err != nil {
-		return nil, protocol.NewError(-32000, "write the card PNG: "+err.Error(), false)
+		return nil, protocol.Fail("write the card PNG: "+err.Error(), false)
 	}
 	return out, nil
 }
@@ -329,7 +330,7 @@ func keyOr(have any, key string) any {
 func (p *plugin) get(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetGetParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	c, err := p.read(ctx, in.RemoteID)
 	if err != nil {
@@ -376,7 +377,7 @@ func (p *plugin) avatar(ctx context.Context, id string, pushedBare bool) (string
 	}
 	path, err := pluginio.WriteTmp(p.blobTmp, "avatar-*.png", img)
 	if err != nil {
-		return "", protocol.NewError(-32000, "write the avatar: "+err.Error(), false)
+		return "", protocol.Fail("write the avatar: "+err.Error(), false)
 	}
 	return path, nil
 }
@@ -397,8 +398,4 @@ func (p *plugin) list(ctx context.Context) (protocol.TargetListResult, error) {
 		return cmp.Or(strings.Compare(a.Name, b.Name), strings.Compare(a.RemoteID, b.RemoteID))
 	})
 	return protocol.TargetListResult{Items: items}, nil
-}
-
-func invalid(err error) error {
-	return protocol.NewError(protocol.CodeInvalidParams, err.Error(), false)
 }

@@ -7,12 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
@@ -32,7 +31,7 @@ type client struct {
 
 func newClient(base, username, password string) *client {
 	return &client{base: strings.TrimRight(base, "/"), username: username, password: password,
-		http: &http.Client{Timeout: time.Minute}}
+		http: httpkit.NewClient(nil)}
 }
 
 // request is one API call. body is sent as is with contentType.
@@ -84,7 +83,7 @@ func (c *client) do(ctx context.Context, r request, out any) error {
 		}
 	}
 	defer resp.Body.Close()
-	return decode(resp, r.method+" "+r.path, out)
+	return httpkit.Decode(resp, r.method+" "+r.path, out)
 }
 
 func (c *client) send(ctx context.Context, r request, token string) (*http.Response, error) {
@@ -98,44 +97,9 @@ func (c *client) send(ctx context.Context, r request, token string) (*http.Respo
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, protocol.NewError(-32000, fmt.Sprintf("%s %s: %v", r.method, r.path, err), true)
+		return nil, protocol.Fail(fmt.Sprintf("%s %s: %v", r.method, r.path, err), true)
 	}
 	return resp, nil
-}
-
-// decode maps a reply's status to a protocol error, or decodes its body.
-func decode(resp *http.Response, what string, out any) error {
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
-	if err != nil {
-		return protocol.NewError(-32000, what+": "+err.Error(), true)
-	}
-	switch {
-	case resp.StatusCode == http.StatusNotFound:
-		return protocol.NewError(protocol.CodeRemoteNotFound, what+": not found", false)
-	case resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests:
-		return protocol.NewError(-32000, fmt.Sprintf("%s: %s: %s", what, resp.Status, snippet(body)), true)
-	case resp.StatusCode >= 300:
-		return protocol.NewError(-32000, fmt.Sprintf("%s: %s: %s", what, resp.Status, snippet(body)), false)
-	}
-	if out == nil {
-		return nil
-	}
-	if raw, ok := out.(*[]byte); ok {
-		*raw = body
-		return nil
-	}
-	if err := json.Unmarshal(body, out); err != nil {
-		return protocol.NewError(-32000, what+": bad reply: "+err.Error(), false)
-	}
-	return nil
-}
-
-func snippet(b []byte) string {
-	s := strings.TrimSpace(string(b))
-	if len(s) > 300 {
-		s = s[:300] + "…"
-	}
-	return s
 }
 
 // session returns a session token, signing in if there is none or if the
@@ -150,7 +114,7 @@ func (c *client) session(ctx context.Context, stale string) (string, error) {
 		return c.token, nil
 	}
 	if c.base == "" || c.username == "" || c.password == "" {
-		return "", protocol.NewError(-32000, "set the instance's url and username config and its password secret", false)
+		return "", protocol.Fail("set the instance's url and username config and its password secret", false)
 	}
 	body := map[string]string{"username": c.username, "password": c.password}
 	path := "/api/auth/sign-in/username"
@@ -166,7 +130,7 @@ func (c *client) session(ctx context.Context, stale string) (string, error) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return "", protocol.NewError(-32000, "sign in: "+err.Error(), true)
+		return "", protocol.Fail("sign in: "+err.Error(), true)
 	}
 	defer resp.Body.Close()
 	var reply struct {
@@ -175,19 +139,19 @@ func (c *client) session(ctx context.Context, stale string) (string, error) {
 			Token string `json:"token"`
 		} `json:"session"`
 	}
-	if err := decode(resp, "sign in", &reply); err != nil {
+	if err := httpkit.Decode(resp, "sign in", &reply); err != nil {
 		var pe *protocol.Error
 		if errors.As(err, &pe) && pe.Retryable() {
 			return "", err
 		}
-		c.failed = protocol.NewError(-32000, "Lumiverse rejected the sign-in; fix the username or password, "+
+		c.failed = protocol.Fail("Lumiverse rejected the sign-in; fix the username or password, "+
 			"which restarts the plugin. Five rejections lock this server out of Lumiverse for a while. "+err.Error(), false)
 		return "", c.failed
 	}
 	// The bearer plugin's header carries the token it expects back.
 	c.token = cmp.Or(resp.Header.Get("set-auth-token"), reply.Token, reply.Session.Token)
 	if c.token == "" {
-		return "", protocol.NewError(-32000, "sign in: the reply has no token", false)
+		return "", protocol.Fail("sign in: the reply has no token", false)
 	}
 	return c.token, nil
 }

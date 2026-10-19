@@ -79,11 +79,11 @@ var createMu sync.Mutex
 func (p *plugin) putLorebook(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetPutLorebookParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	var book map[string]any
 	if err := json.Unmarshal(in.Lorebook, &book); err != nil || book == nil {
-		return nil, invalid(errors.New("lorebook is not a JSON object"))
+		return nil, protocol.InvalidParams(errors.New("lorebook is not a JSON object"))
 	}
 	files, err := p.worldFiles(ctx)
 	if err != nil {
@@ -130,7 +130,7 @@ func (p *plugin) putLorebook(ctx context.Context, params json.RawMessage) (any, 
 			return protocol.TargetPutResult{RemoteID: f.FileID}, nil
 		}
 	}
-	return nil, protocol.NewError(-32000, fmt.Sprintf("SillyTavern's world file list doesn't show the new file %q", want), true)
+	return nil, protocol.Fail(fmt.Sprintf("SillyTavern's world file list doesn't show the new file %q", want), true)
 }
 
 // key is the sync key of the push that created the file, or "".
@@ -144,7 +144,7 @@ func (f worldFile) key() string {
 func (p *plugin) removeLorebook(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetDeleteParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	files, err := p.worldFiles(ctx)
 	if err != nil {
@@ -354,7 +354,7 @@ func listOr(v any) []any {
 func (p *plugin) getLorebook(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetGetParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	files, err := p.worldFiles(ctx)
 	if err != nil {

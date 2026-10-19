@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
@@ -135,10 +136,10 @@ func TestAMissingFileIsNotFound(t *testing.T) {
 	f := newFake(t)
 	p := newPlugin(f)
 	if _, err := putBookErr(p, protocol.TargetPutLorebookParams{RemoteID: "gone",
-		Lorebook: mustJSON(t, testBook("Gone"))}); !notFound(err) || len(f.worlds) != 0 {
+		Lorebook: mustJSON(t, testBook("Gone"))}); !httpkit.NotFound(err) || len(f.worlds) != 0 {
 		t.Fatalf("put to a missing file: %v; %d files", err, len(f.worlds))
 	}
-	if _, err := p.getLorebook(context.Background(), mustJSON(t, protocol.TargetGetParams{RemoteID: "gone"})); !notFound(err) {
+	if _, err := p.getLorebook(context.Background(), mustJSON(t, protocol.TargetGetParams{RemoteID: "gone"})); !httpkit.NotFound(err) {
 		t.Fatalf("get of a missing file: %v", err)
 	}
 }
@@ -373,7 +374,7 @@ func TestDeleteWorldFile(t *testing.T) {
 	if len(f.worlds) != 0 {
 		t.Fatalf("worlds = %v", f.worlds)
 	}
-	if _, err := p.removeLorebook(context.Background(), del); !notFound(err) {
+	if _, err := p.removeLorebook(context.Background(), del); !httpkit.NotFound(err) {
 		t.Fatalf("deleting it again: %v, want not found", err)
 	}
 }

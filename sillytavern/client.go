@@ -12,8 +12,8 @@ import (
 	"net/http/cookiejar"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
@@ -34,20 +34,6 @@ type client struct {
 type session struct {
 	http *http.Client
 	csrf string
-}
-
-// sameHostSameMethod follows a redirect only where the call survives it. A
-// proxy's http-to-https 301 turns a POST into a GET, which SillyTavern
-// answers with a 404 that would read as a missing character.
-func sameHostSameMethod(req *http.Request, via []*http.Request) error {
-	if len(via) >= 10 {
-		return errors.New("stopped after 10 redirects")
-	}
-	last := via[len(via)-1]
-	if req.URL.Scheme == last.URL.Scheme && req.URL.Host == last.URL.Host && req.Method == last.Method {
-		return nil
-	}
-	return http.ErrUseLastResponse
 }
 
 func newClient(base, auth, username, password string) *client {
@@ -120,9 +106,9 @@ func (c *client) do(ctx context.Context, r request, out any) error {
 		if c.auth == "basic" {
 			msg += ". With user accounts on, basic mode needs perUserBasicAuth in SillyTavern's config"
 		}
-		return protocol.NewError(-32000, msg, false)
+		return protocol.Fail(msg, false)
 	}
-	return decode(resp, what, out)
+	return httpkit.Decode(resp, what, out)
 }
 
 func (c *client) send(ctx context.Context, s *session, r request) (*http.Response, error) {
@@ -141,54 +127,9 @@ func (c *client) send(ctx context.Context, s *session, r request) (*http.Respons
 	}
 	resp, err := s.http.Do(req)
 	if err != nil {
-		return nil, protocol.NewError(-32000, fmt.Sprintf("%s %s: %v", r.method, r.path, err), true)
+		return nil, protocol.Fail(fmt.Sprintf("%s %s: %v", r.method, r.path, err), true)
 	}
 	return resp, nil
-}
-
-// maxReply caps a reply's size; a variable so tests can lower it.
-var maxReply int64 = 64 << 20
-
-// decode maps a reply's status to a protocol error, or decodes its body;
-// an out of type *[]byte gets the body as it is.
-func decode(resp *http.Response, what string, out any) error {
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxReply+1))
-	if err != nil {
-		return protocol.NewError(-32000, what+": "+err.Error(), true)
-	}
-	if int64(len(body)) > maxReply {
-		return protocol.NewError(-32000, fmt.Sprintf("%s: reply over %d bytes", what, maxReply), false)
-	}
-	switch {
-	case resp.StatusCode == http.StatusNotFound:
-		return protocol.NewError(protocol.CodeRemoteNotFound, what+": not found", false)
-	case resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests:
-		return protocol.NewError(-32000, fmt.Sprintf("%s: %s: %s", what, resp.Status, snippet(body)), true)
-	case resp.StatusCode >= 300 && resp.StatusCode < 400:
-		return protocol.NewError(-32000, fmt.Sprintf("%s: the url redirects to %s; set url to the final address",
-			what, resp.Header.Get("Location")), false)
-	case resp.StatusCode >= 300:
-		return protocol.NewError(-32000, fmt.Sprintf("%s: %s: %s", what, resp.Status, snippet(body)), false)
-	}
-	if out == nil {
-		return nil
-	}
-	if raw, ok := out.(*[]byte); ok {
-		*raw = body
-		return nil
-	}
-	if err := json.Unmarshal(body, out); err != nil {
-		return protocol.NewError(-32000, what+": bad reply: "+err.Error(), false)
-	}
-	return nil
-}
-
-func snippet(b []byte) string {
-	s := strings.TrimSpace(string(b))
-	if len(s) > 300 {
-		s = s[:300] + "…"
-	}
-	return s
 }
 
 // session returns the current session, logging in if there is none or if it
@@ -203,23 +144,23 @@ func (c *client) session(ctx context.Context, stale *session) (s *session, fresh
 		return c.sess, false, nil
 	}
 	if c.auth != "none" && c.auth != "basic" && c.auth != "account" {
-		return nil, false, protocol.NewError(protocol.CodeInvalidParams, fmt.Sprintf("auth is %q, want none, basic, or account", c.auth), false)
+		return nil, false, protocol.InvalidParams(fmt.Errorf("auth is %q, want none, basic, or account", c.auth))
 	}
 	if c.base == "" {
-		return nil, false, protocol.NewError(-32000, "set the instance's url config", false)
+		return nil, false, protocol.Fail("set the instance's url config", false)
 	}
 	if c.auth != "none" && (c.username == "" || c.password == "") {
-		return nil, false, protocol.NewError(-32000, "set the instance's username config and its password secret", false)
+		return nil, false, protocol.Fail("set the instance's username config and its password secret", false)
 	}
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, false, err
 	}
-	s = &session{http: &http.Client{Jar: jar, Timeout: time.Minute, CheckRedirect: sameHostSameMethod}}
+	s = &session{http: httpkit.NewClient(jar)}
 	if err := c.login(ctx, s); err != nil {
 		var rej *rejection
 		if errors.As(err, &rej) {
-			c.failed = protocol.NewError(-32000, rej.Error()+". Fix it in the instance's config or secrets, which restarts the plugin.", false)
+			c.failed = protocol.Fail(rej.Error()+". Fix it in the instance's config or secrets, which restarts the plugin.", false)
 			return nil, false, c.failed
 		}
 		return nil, false, err
@@ -257,15 +198,15 @@ func (c *client) login(ctx context.Context, s *session) error {
 		forbidden := resp.StatusCode == http.StatusForbidden
 		if resp.StatusCode == http.StatusUnauthorized || forbidden && r.method == http.MethodPost {
 			b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-			return &rejection{resp.StatusCode, r.method + " " + r.path, snippet(b)}
+			return &rejection{resp.StatusCode, r.method + " " + r.path, httpkit.Snippet(b)}
 		}
 		// A 403 before the login is the whitelist. It costs no login attempt and
 		// is fixed in SillyTavern's config, so the client may try again.
 		if forbidden {
-			return protocol.NewError(-32000, "SillyTavern answered 403 at "+r.path+": add this server's address to "+
+			return protocol.Fail("SillyTavern answered 403 at "+r.path+": add this server's address to "+
 				"whitelist in its config.yaml, or turn whitelistMode off", false)
 		}
-		return decode(resp, "login: "+r.method+" "+r.path, out)
+		return httpkit.Decode(resp, "login: "+r.method+" "+r.path, out)
 	}
 	if c.auth == "basic" {
 		if err := step(request{method: http.MethodGet, path: "/login"}, nil); err != nil {
@@ -293,9 +234,4 @@ func (c *client) drop(s *session) {
 	if c.sess == s {
 		c.sess = nil
 	}
-}
-
-func notFound(err error) bool {
-	var pe *protocol.Error
-	return errors.As(err, &pe) && pe.Code == protocol.CodeRemoteNotFound
 }

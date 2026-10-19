@@ -10,6 +10,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
@@ -99,7 +100,7 @@ func TestUpdateCharacter(t *testing.T) {
 	if _, ok := object(f.characters[id]["extensions"])["avatar_crop_image_id"]; ok {
 		t.Fatal("the push restored the old avatar's crop")
 	}
-	if _, err := p.put(context.Background(), mustJSON(t, protocol.TargetPutParams{Card: card(nil), RemoteID: "gone"})); !notFound(err) {
+	if _, err := p.put(context.Background(), mustJSON(t, protocol.TargetPutParams{Card: card(nil), RemoteID: "gone"})); !httpkit.NotFound(err) {
 		t.Fatalf("put to a missing character: %v", err)
 	}
 }
@@ -123,7 +124,7 @@ func TestGetCharacter(t *testing.T) {
 	if got.Data["character_version"] != "2" || got.Data["first_mes"] != "Hail." || got.Data["character_book"] != nil {
 		t.Fatalf("data = %v", got.Data)
 	}
-	if _, err := p.get(context.Background(), mustJSON(t, protocol.TargetGetParams{RemoteID: "gone"})); !notFound(err) {
+	if _, err := p.get(context.Background(), mustJSON(t, protocol.TargetGetParams{RemoteID: "gone"})); !httpkit.NotFound(err) {
 		t.Fatalf("get of a missing character: %v", err)
 	}
 }
@@ -288,7 +289,7 @@ func TestDeleteCharacter(t *testing.T) {
 	if len(f.characters) != 0 {
 		t.Fatalf("characters = %v", f.characters)
 	}
-	if _, err := p.remove(context.Background(), "/characters/", del); !notFound(err) {
+	if _, err := p.remove(context.Background(), "/characters/", del); !httpkit.NotFound(err) {
 		t.Fatalf("deleting it again: %v, want not found", err)
 	}
 }

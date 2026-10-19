@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
@@ -100,10 +101,10 @@ func TestReplaceWorldBookKeepsItsID(t *testing.T) {
 	if len(f.entries[id]) != 1 || f.entries[id][0]["content"] != "D" || f.books[id]["metadata"].(map[string]any)["sync_key"] != "k" {
 		t.Fatalf("after replace: %v %v", f.entries[id], f.books[id])
 	}
-	if _, err := p.putLorebook(context.Background(), mustJSON(t, protocol.TargetPutLorebookParams{RemoteID: "gone", Lorebook: lorebook()})); !notFound(err) {
+	if _, err := p.putLorebook(context.Background(), mustJSON(t, protocol.TargetPutLorebookParams{RemoteID: "gone", Lorebook: lorebook()})); !httpkit.NotFound(err) {
 		t.Fatalf("put to a missing book: %v", err)
 	}
-	if _, err := p.getLorebook(context.Background(), mustJSON(t, protocol.TargetGetParams{RemoteID: "gone"})); !notFound(err) {
+	if _, err := p.getLorebook(context.Background(), mustJSON(t, protocol.TargetGetParams{RemoteID: "gone"})); !httpkit.NotFound(err) {
 		t.Fatalf("get of a missing book: %v", err)
 	}
 }

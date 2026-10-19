@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
@@ -276,7 +277,7 @@ func TestErrors(t *testing.T) {
 	}
 	f.failWith = 0
 	err := c.call(context.Background(), "/api/characters/get", map[string]any{"avatar_url": "Nobody.png"}, nil)
-	if !notFound(err) {
+	if !httpkit.NotFound(err) {
 		t.Fatalf("missing character: %v, want -32004", err)
 	}
 	if f.logins != 1 {
@@ -287,9 +288,9 @@ func TestErrors(t *testing.T) {
 }
 
 func TestAnOversizedReplyIsFinal(t *testing.T) {
-	defer func(n int64) { maxReply = n }(maxReply)
+	defer func(n int64) { httpkit.MaxReply = n }(httpkit.MaxReply)
 	// Room for the login's replies, not the list's.
-	maxReply = 32
+	httpkit.MaxReply = 32
 	f := newFake(t)
 	f.worlds["Dwarves"] = map[string]any{"entries": map[string]any{}}
 	pe := final(t, newTestClient(f, "account").call(context.Background(), "/api/worldinfo/list", map[string]any{}, &[]any{}))

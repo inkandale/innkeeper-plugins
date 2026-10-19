@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
@@ -58,7 +59,7 @@ func TestErrors(t *testing.T) {
 	f := newFake(t)
 	p := newPlugin(t, f, "owner", fakePassword)
 	err := p.c.call(context.Background(), "GET", "/characters/nope", nil, nil)
-	if !notFound(err) {
+	if !httpkit.NotFound(err) {
 		t.Fatalf("missing character: %v", err)
 	}
 	f.srv.Close()

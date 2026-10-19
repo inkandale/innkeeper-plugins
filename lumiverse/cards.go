@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper-plugins/internal/pluginio"
 	"github.com/inkandale/innkeeper/protocol"
 )
@@ -72,13 +73,13 @@ func object(v any) map[string]any {
 func (p *plugin) put(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetPutParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	var card struct {
 		Data map[string]any `json:"data"`
 	}
 	if err := json.Unmarshal(in.Card, &card); err != nil || card.Data == nil {
-		return nil, invalid(errors.New("card has no data object"))
+		return nil, protocol.InvalidParams(errors.New("card has no data object"))
 	}
 	id := in.RemoteID
 	if id == "" && in.Key != "" {
@@ -116,7 +117,7 @@ func (p *plugin) findCharacter(ctx context.Context, name, key string) (string, e
 	for _, s := range list.Data {
 		var c character
 		err := p.c.call(ctx, "GET", "/characters/"+url.PathEscape(s.ID), nil, &c)
-		if notFound(err) {
+		if httpkit.NotFound(err) {
 			continue
 		}
 		if err != nil {
@@ -142,7 +143,7 @@ func (p *plugin) createCharacter(ctx context.Context, data map[string]any, key s
 		return "", err
 	}
 	if reply.Character.ID == "" {
-		return "", protocol.NewError(-32000, "character import returned no id", false)
+		return "", protocol.Fail("character import returned no id", false)
 	}
 	return reply.Character.ID, nil
 }
@@ -237,7 +238,7 @@ func listOr(v any) []any {
 func (p *plugin) uploadAvatar(ctx context.Context, id, path string) error {
 	raw, err := pluginio.ReadFile(path)
 	if err != nil {
-		return protocol.NewError(-32000, "read avatar: "+err.Error(), false)
+		return protocol.Fail("read avatar: "+err.Error(), false)
 	}
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
@@ -273,7 +274,7 @@ func avatarExt(raw []byte) string {
 func (p *plugin) get(ctx context.Context, params json.RawMessage) (any, error) {
 	var in protocol.TargetGetParams
 	if err := json.Unmarshal(params, &in); err != nil {
-		return nil, invalid(err)
+		return nil, protocol.InvalidParams(err)
 	}
 	// The export leaves world_book_ids out, so read the links here.
 	var c character
@@ -317,23 +318,14 @@ func (p *plugin) get(ctx context.Context, params json.RawMessage) (any, error) {
 func (p *plugin) avatar(ctx context.Context, id string) (string, error) {
 	var img []byte
 	if err := p.c.call(ctx, "GET", "/characters/"+url.PathEscape(id)+"/avatar", nil, &img); err != nil {
-		if notFound(err) {
+		if httpkit.NotFound(err) {
 			return "", nil
 		}
 		return "", err
 	}
 	path, err := pluginio.WriteTmp(p.blobTmp, "avatar-*"+avatarExt(img), img)
 	if err != nil {
-		return "", protocol.NewError(-32000, "write the avatar: "+err.Error(), false)
+		return "", protocol.Fail("write the avatar: "+err.Error(), false)
 	}
 	return path, nil
-}
-
-func notFound(err error) bool {
-	var pe *protocol.Error
-	return errors.As(err, &pe) && pe.Code == protocol.CodeRemoteNotFound
-}
-
-func invalid(err error) error {
-	return protocol.NewError(protocol.CodeInvalidParams, err.Error(), false)
 }
