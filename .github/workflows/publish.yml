@@ -2,7 +2,8 @@ name: publish
 
 # Releases each plugin version in index.toml that has no release yet, then
 # rebuilds the index Innkeeper installs from: the index.toml asset on the
-# "index" release, concatenated from every release's entry.toml.
+# "index" release, concatenated from the entry.toml of each release of a
+# plugin still in index.toml.
 on:
   push:
     branches: [main]
@@ -45,7 +46,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           : > index-published.toml
+          names=$(sed -n 's/^name = "\(.*\)"/\1/p' index.toml)
           for tag in $(gh release list --limit 1000 --json tagName --jq '.[].tagName | select(test("-v[0-9]"))'); do
+            echo "$names" | grep -qx "${tag%-v*}" || continue
             gh release download "$tag" --pattern entry.toml --output - >> index-published.toml
             echo >> index-published.toml
           done
