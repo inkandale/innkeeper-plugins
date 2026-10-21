@@ -161,6 +161,10 @@ func (r result) values() (map[string]json.RawMessage, error) {
 // unknownLanguage is the language of a card too short or mixed to tell.
 const unknownLanguage = "Unknown"
 
+// languageSample is how many characters language reads. Past about 4,000,
+// whatlanggo's confidence goes negative and it calls English unreliable.
+const languageSample = 2000
+
 // language names the texts' language, such as English or Japanese, after
 // macros and markup are removed.
 // ponytail: whatlanggo confuses short Cyrillic text (Ukrainian reads as Serbian, so Unknown); lingua-go is accurate but adds 130 MB.
@@ -170,7 +174,8 @@ func language(texts ...string) string {
 		b.WriteString(htmlTag.ReplaceAllString(macro.ReplaceAllString(t, " "), " "))
 		b.WriteString("\n")
 	}
-	info := whatlanggo.Detect(b.String())
+	sample := []rune(b.String())
+	info := whatlanggo.Detect(string(sample[:min(len(sample), languageSample)]))
 	if !info.IsReliable() {
 		return unknownLanguage
 	}
