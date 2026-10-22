@@ -1,5 +1,5 @@
 name = "card-import"
-version = "0.2.2"
+version = "0.3.0"
 protocol = 1
 command = ["./card-import"]
 capabilities = ["import"]

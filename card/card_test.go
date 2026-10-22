@@ -110,6 +110,29 @@ func TestDecodeV1AndV2(t *testing.T) {
 	}
 }
 
+func TestDecodePygmalionCard(t *testing.T) {
+	card, _, err := Decode([]byte(`{"char_name": "Junko", "char_persona": "Clumsy.", "world_scenario": "A cafe.",
+		"char_greeting": "Hi!", "example_dialogue": "<START>"}`))
+	want := `{"spec": "chara_card_v3", "spec_version": "3.0", "data": {"name": "Junko", "description": "Clumsy.",
+		"scenario": "A cafe.", "first_mes": "Hi!", "mes_example": "<START>", "group_only_greetings": []}}`
+	if err != nil || !sameJSON(t, card, []byte(want)) {
+		t.Fatalf("%v %s", err, card)
+	}
+}
+
+func TestDecodeRokosBasiliskCard(t *testing.T) {
+	card, _, err := Decode([]byte(`{"dbId": "a0cf", "author": {"username": "0394", "displayName": "1602"},
+		"interactions": 463, "name": "Koro", "publicDesc": "Just some guy", "internalDesc": "Smug.",
+		"exampleDialog": "", "greeting": "*Leans on a wall.*", "privacy": "Public", "defsPrivacy": "Open",
+		"categories": [], "avatar": "c9b4.png"}`))
+	want := `{"spec": "chara_card_v3", "spec_version": "3.0", "data": {"name": "Koro", "description": "Smug.",
+		"first_mes": "*Leans on a wall.*", "mes_example": "", "creator": "0394", "creator_notes": "Just some guy",
+		"group_only_greetings": []}}`
+	if err != nil || !sameJSON(t, card, []byte(want)) {
+		t.Fatalf("%v %s", err, card)
+	}
+}
+
 func TestDecodePrefersCCv3(t *testing.T) {
 	// Not the placeholder, which decodes as no avatar.
 	var buf bytes.Buffer
@@ -152,13 +175,15 @@ func TestDecodeRejects(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, in := range map[string][]byte{
-		"text":         []byte("hello"),
-		"unknown spec": []byte(`{"spec": "chara_card_v9", "data": {}}`),
-		"no name":      []byte(`{"foo": 1}`),
-		"name only":    []byte(`{"name": "x"}`),
-		"name, other":  []byte(`{"name": "x", "model": "gpt"}`),
-		"V2 no data":   []byte(`{"spec": "chara_card_v2"}`),
-		"plain PNG":    img,
+		"text":           []byte("hello"),
+		"unknown spec":   []byte(`{"spec": "chara_card_v9", "data": {}}`),
+		"no name":        []byte(`{"foo": 1}`),
+		"name only":      []byte(`{"name": "x"}`),
+		"name, other":    []byte(`{"name": "x", "model": "gpt"}`),
+		"V2 no data":     []byte(`{"spec": "chara_card_v2"}`),
+		"char_name only": []byte(`{"char_name": "x"}`),
+		"Roko list":      []byte(`[{"name": "x", "internalDesc": "y"}]`),
+		"plain PNG":      img,
 	} {
 		if _, _, err := Decode(in); !errors.Is(err, ErrNotCard) {
 			t.Errorf("%s: err = %v, want ErrNotCard", name, err)

@@ -1,5 +1,5 @@
 name = "card-codec"
-version = "0.2.1"
+version = "0.3.0"
 protocol = 1
 command = ["./card-codec"]
 capabilities = ["codec"]

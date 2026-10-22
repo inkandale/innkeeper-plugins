@@ -57,7 +57,7 @@ reads it from `plugin.toml`.
 | Package | Use it for |
 |---|---|
 | `protocol.Serve` (core) | The main loop: `initialize` from `plugin.toml`, per-instance state, method dispatch. Build errors with `protocol.Fail` and `protocol.InvalidParams` |
-| `card` | Reading and writing card files: CCv3, V2, and V1 as JSON and PNG, and CharX |
+| `card` | Reading and writing card files: CCv3, V2, and V1 as JSON and PNG, CharX, and reading Pygmalion and Roko's Basilisk JSON |
 | `internal/pluginio` | Reading input files with a size cap, and writing to `blob_tmp` |
 | `internal/httpkit` | Calling an app's JSON API: a reply size cap, redirect refusal, and HTTP status to protocol error, with 5xx and 429 retryable |
 | `internal/pgtest` | A PostgreSQL schema per test, from `INNKEEPER_TEST_DATABASE_URL` |

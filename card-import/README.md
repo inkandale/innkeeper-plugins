@@ -1,6 +1,7 @@
 # card-import
 
-Imports CCv3, V2, and V1 cards as PNG or JSON, CharX cards, and lorebooks as CCv3
+Imports CCv3, V2, and V1 cards as PNG or JSON, Pygmalion and Roko's Basilisk
+JSON cards, CharX cards, and lorebooks as CCv3
 `character_book` JSON or SillyTavern world info.
 
 Set `config.folder` to the folder imports may read. Import params are one of:

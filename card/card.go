@@ -1,6 +1,7 @@
 // Package card reads and writes character card files: CCv3, V2, and V1
 // cards as JSON, and as PNG images that carry the card in a text chunk. It
-// also reads CharX, a zip holding a CCv3 card.json and its assets.
+// also reads CharX, a zip holding a CCv3 card.json and its assets, and the
+// older Pygmalion and Roko's Basilisk JSON cards.
 package card
 
 import (
@@ -150,10 +151,9 @@ func toV3(raw []byte) (json.RawMessage, error) {
 	case "":
 		// V1 cards keep their fields at the top level. Requiring a content field
 		// keeps app presets and other JSON with a name from passing as cards.
-		if !isV1(top) {
+		if data = v1Data(top); data == nil {
 			return nil, fmt.Errorf("%w: no spec, and not a V1 card", ErrNotCard)
 		}
-		data = top
 	default:
 		return nil, fmt.Errorf("%w: unknown spec %q", ErrNotCard, spec)
 	}
@@ -161,6 +161,50 @@ func toV3(raw []byte) (json.RawMessage, error) {
 		data["group_only_greetings"] = json.RawMessage("[]")
 	}
 	return json.Marshal(map[string]any{"spec": "chara_card_v3", "spec_version": "3.0", "data": data})
+}
+
+// Pygmalion and Roko's Basilisk cards predate V1 and name its fields differently.
+var (
+	pygmalionFields = map[string]string{"char_name": "name", "char_persona": "description",
+		"world_scenario": "scenario", "char_greeting": "first_mes", "example_dialogue": "mes_example"}
+	rokoFields = map[string]string{"name": "name", "internalDesc": "description",
+		"greeting": "first_mes", "exampleDialog": "mes_example", "publicDesc": "creator_notes"}
+)
+
+// v1Data returns the V1 fields of a V1, Pygmalion, or Roko's Basilisk card,
+// or nil for anything else.
+func v1Data(top map[string]json.RawMessage) map[string]json.RawMessage {
+	if isV1(top) {
+		return top
+	}
+	if data := renamed(top, pygmalionFields); isV1(data) {
+		return data
+	}
+	if _, ok := top["internalDesc"]; !ok {
+		return nil
+	}
+	data := renamed(top, rokoFields)
+	if !isV1(data) {
+		return nil
+	}
+	var author struct {
+		Username string `json:"username"`
+	}
+	if json.Unmarshal(top["author"], &author) == nil && author.Username != "" {
+		data["creator"], _ = json.Marshal(author.Username)
+	}
+	return data
+}
+
+// renamed returns top's fields named in names, under their new names.
+func renamed(top map[string]json.RawMessage, names map[string]string) map[string]json.RawMessage {
+	out := map[string]json.RawMessage{}
+	for from, to := range names {
+		if v, ok := top[from]; ok {
+			out[to] = v
+		}
+	}
+	return out
 }
 
 // isV1 reports whether top has a name and at least one content field.
