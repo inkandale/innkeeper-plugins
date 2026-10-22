@@ -11,7 +11,7 @@ part and into which library.
 |---|---|---|---|
 | chub.ai, Pygmalion Booru, Nyai.me, RisuRealm, webring, catbox, and 69k JanitorAI cards | part 2's `char_archive_database_01-05-2025.sql.7z`, and each part's `hashed-data` file | `chub-archive` | Chub archive |
 | chub.ai mega.nz scrape, early 2023 | part 1's `files/historical/chub_ai-mega-nz_scrape.7z` | `card-import` | Chub archive |
-| jaicards: about 140k JanitorAI cards | part 2's `files/historical/jaicards/cards.7z.001` and the parts after it | `card-import` | JanitorAI |
+| jaicards: about 140k JanitorAI cards, and about 40k more from Hugging Face | part 2's `files/historical/jaicards/cards.7z.001` and the parts after it, and `89ab.zip` below | `card-import` | JanitorAI |
 | VenusAI, 05-27-2023, and the VenusAI Discord | part 1's `chub-archive_part-1_third-party.7z` | `card-import` | VenusAI |
 | Pygmalion Discord Server, 04-18-2023 | the same file | `card-import` 0.3.0 or later | Pygmalion |
 | Roko's Basilisk | the same file | `card-import` 0.3.0 or later | Roko's Basilisk |
@@ -26,9 +26,21 @@ Skip the rest:
 - The logs, `proxy_stats`, `other`, and jaicards' `html` and `original json`:
   chats, stats, and other copies of jaicards, not cards to import.
 
+The takeout's jaicards lacks the `cards/8`, `9`, `a`, and `b` folders, about
+40k cards. They're in the original dataset,
+[AUTOMATIC/jaicards](https://huggingface.co/datasets/AUTOMATIC/jaicards), as
+`89ab.zip`. It's 22 GB; `-C -` resumes an interrupted download:
+
+```bash
+curl -L -C - -o 89ab.zip https://huggingface.co/datasets/AUTOMATIC/jaicards/resolve/main/89ab.zip
+shasum -a 256 89ab.zip  # 45b39e77abccc8ef812afbe664eab9d873ffb24ee3f035421cfa62f8218a3cfe
+```
+
 ## Set up
 
 1. Extract the files above into one folder, keeping each archive's folders.
+   `89ab.zip` holds a `cards` folder too: extract it in the same place as
+   jaicards' `cards.7z`, so its four folders join the others.
 2. Mount that folder read-only where the worker runs imports, such as
    `/archive`; on Kubernetes, the worker container. It only has to stay
    mounted while an import runs.
