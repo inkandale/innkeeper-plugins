@@ -6,6 +6,9 @@ catalogs, app targets, codecs, AI actions, enrichers, and login providers.
 Each plugin is a folder with a `plugin.toml` manifest. `index.toml` lists every
 plugin. The protocol and contract test kit live in the `innkeeper` repo.
 
+To import the Character Archive takeout, see
+[docs/character-archive-takeout.md](docs/character-archive-takeout.md).
+
 ## Building and checking
 
 ```bash
