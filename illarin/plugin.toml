@@ -1,0 +1,17 @@
+name = "illarin"
+version = "0.1.0"
+protocol = 1
+command = ["./illarin"]
+capabilities = ["import"]
+description = "Import cards and lorebooks from Illarin as a connected app: a work's page URL, or every work sent to Innkeeper from Illarin. The first import shows a code to approve on Illarin."
+category = "Import"
+inputs = ["url"]
+database = true
+
+[config]
+type = "object"
+
+[config.properties.base_url]
+type = "string"
+title = "Illarin address"
+description = "Leave empty for https://illarin.com. Changing it disconnects; the next import connects again."

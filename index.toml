@@ -71,6 +71,15 @@ capabilities = ["import", "sites", "pull"]
 description = "Import a card or lorebook from its page URL on chub.ai, RisuRealm, or Character Tavern, link library items to their pages there, and check those pages for the author's changes. Needs a core with source_kinds."
 
 [[plugin]]
+name = "illarin"
+category = "Import"
+path = "illarin"
+version = "0.1.0"
+protocol = 1
+capabilities = ["import"]
+description = "Import cards and lorebooks from Illarin as a connected app: a work's page URL, or every work sent to Innkeeper from Illarin. The first import shows a code to approve on Illarin."
+
+[[plugin]]
 name = "forge-ai"
 category = "AI"
 path = "forge-ai"
