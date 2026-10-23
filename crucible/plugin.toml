@@ -1,0 +1,32 @@
+name = "crucible"
+version = "0.1.0"
+protocol = 1
+command = ["./crucible"]
+capabilities = ["enrich"]
+# Each card is one quick HTTP lookup, so one run can cover a whole archive.
+enrich_max_cards = 1000000
+description = "Score cards with crucible, a small model that reads a card once: quality and its six dimensions, rating, card type, point of view, format, content flags, contradictions between fields, and suggestions. Calls a crucible service at the URL you set."
+category = "Quality"
+
+[config]
+type = "object"
+required = ["url"]
+
+[config.properties]
+url = { type = "string", title = "Service URL", description = "The crucible service, such as http://crucible.example:8080. Each card is sent to its POST /score." }
+
+[enrichments]
+quality = { type = "score", range = [0, 100], label = "Crucible quality", grid = true }
+consistency = { type = "score", range = [0, 100], label = "Consistency" }
+voice = { type = "score", range = [0, 100], label = "Voice" }
+first_impression = { type = "score", range = [0, 100], label = "First impression" }
+roleplayability = { type = "score", range = [0, 100], label = "Roleplayability" }
+token_efficiency = { type = "score", range = [0, 100], label = "Token efficiency" }
+field_governance = { type = "score", range = [0, 100], label = "Field governance" }
+rating = { type = "text", label = "Rating" }
+card_type = { type = "text", label = "Card type" }
+pov = { type = "text", label = "Point of view" }
+format = { type = "text", label = "Format" }
+flags = { type = "list", label = "Flags" }
+contradictions = { type = "list", label = "Contradictions" }
+suggestions = { type = "list", label = "Suggestions" }

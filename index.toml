@@ -96,3 +96,12 @@ version = "0.3.1"
 protocol = 1
 capabilities = ["enrich"]
 description = "Score cards with fast checks that need no model: missing fields, size, repeated text, leftover placeholders, markup, and garbled text, and detect each card's language. Use it to filter an archive before a model-based evaluation: problems and language show in the library sidebar with counts."
+
+[[plugin]]
+name = "crucible"
+category = "Quality"
+path = "crucible"
+version = "0.1.0"
+protocol = 1
+capabilities = ["enrich"]
+description = "Score cards with crucible, a small model that reads a card once: quality and its six dimensions, rating, card type, point of view, format, content flags, contradictions between fields, and suggestions. Calls a crucible service at the URL you set."

@@ -1,0 +1,111 @@
+// Command crucible is an enrich plugin. It sends each card to a crucible
+// service's POST /score and stores the values it answers with.
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/inkandale/innkeeper/protocol"
+)
+
+// settings is an instance's config.
+type settings struct {
+	URL string
+}
+
+// parseSettings does not require the URL: core's config check skips required
+// settings, so the plugin must start without one and fail when used.
+func parseSettings(config map[string]any) settings {
+	u, _ := config["url"].(string)
+	return settings{URL: strings.TrimRight(strings.TrimSpace(u), "/")}
+}
+
+var client = &http.Client{Timeout: 60 * time.Second}
+
+func main() {
+	protocol.Serve(protocol.Plugin[settings]{
+		Init: func(_ context.Context, p protocol.InitializeParams) (*settings, error) {
+			s := parseSettings(p.Config)
+			return &s, nil
+		},
+		Methods: map[string]func(*settings, context.Context, json.RawMessage) (any, error){
+			protocol.MethodEnrichRun: func(s *settings, ctx context.Context, params json.RawMessage) (any, error) {
+				return enrich(ctx, s, params)
+			},
+		},
+	})
+}
+
+// enrich scores a batch's revisions at once. One revision's failure is its
+// own error; the rest of the batch goes on.
+func enrich(ctx context.Context, s *settings, params json.RawMessage) (*protocol.EnrichRunResult, error) {
+	if s.URL == "" {
+		return nil, errors.New("set the service URL")
+	}
+	var p protocol.EnrichRunParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, protocol.InvalidParams(err)
+	}
+	if len(p.Revisions) == 0 || len(p.Revisions) > protocol.MaxEnrichBatch {
+		return nil, protocol.InvalidParams(fmt.Errorf("revisions must hold 1 to %d", protocol.MaxEnrichBatch))
+	}
+	results := make([]protocol.EnrichResult, len(p.Revisions))
+	var wg sync.WaitGroup
+	for i, rev := range p.Revisions {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			results[i] = score(ctx, s, rev)
+		}()
+	}
+	wg.Wait()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return &protocol.EnrichRunResult{Results: results}, nil
+}
+
+// score sends one revision to the service.
+func score(ctx context.Context, s *settings, rev protocol.EnrichRevision) protocol.EnrichResult {
+	fail := func(err error) protocol.EnrichResult {
+		return protocol.EnrichResult{RevisionID: rev.RevisionID, Error: err.Error()}
+	}
+	body, err := json.Marshal(map[string]any{"card_id": rev.CardID, "revision_id": rev.RevisionID, "data": rev.Data})
+	if err != nil {
+		return fail(err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL+"/score", bytes.NewReader(body))
+	if err != nil {
+		return fail(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return fail(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Values map[string]json.RawMessage `json:"values"`
+		Meta   json.RawMessage            `json:"meta"`
+		Error  string                     `json:"error"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, protocol.MaxEnrichValue*16)).Decode(&out); err != nil {
+		return fail(fmt.Errorf("crucible service answered HTTP %d without JSON", resp.StatusCode))
+	}
+	if resp.StatusCode != http.StatusOK {
+		if out.Error == "" {
+			out.Error = fmt.Sprintf("crucible service answered HTTP %d", resp.StatusCode)
+		}
+		return fail(errors.New(out.Error))
+	}
+	return protocol.EnrichResult{RevisionID: rev.RevisionID, Values: out.Values, Meta: out.Meta}
+}
