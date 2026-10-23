@@ -51,7 +51,8 @@ shasum -a 256 *.zip
 
 1. Extract the files above into one folder, keeping each archive's folders.
    Each jaicards zip holds a `cards` folder; extract all four in the same
-   place, so their folders `0` to `f` share one `cards`.
+   place, so their folders `0` to `f` share one `cards`. They are ZIP64,
+   which macOS `unzip` can't read; use `python3 -m zipfile -e 0123.zip .`.
 2. Mount that folder read-only where the worker runs imports, such as
    `/archive`; on Kubernetes, the worker container. It only has to stay
    mounted while an import runs.
