@@ -1,5 +1,5 @@
 name = "card-lint"
-version = "0.3.1"
+version = "0.4.0"
 protocol = 1
 command = ["./card-lint"]
 capabilities = ["enrich"]
@@ -18,7 +18,7 @@ repeat_words = { type = "integer", title = "Repeated text from", minimum = 5, de
 placeholders = { type = "array", title = "Placeholders", items = { type = "string" }, default = ["<BOT>", "<USER>", "{char}", "{user}", "[name]", "[character]"], description = "Leftover template text, matched in any case." }
 
 [enrichments]
-lint = { type = "score", range = [0, 100], label = "Lint", grid = true }
+lint = { type = "score", range = [0, 100], label = "Lint", grid = true, priority = 100 }
 tokens = { type = "score", range = [0, 1000000], label = "Always-on tokens" }
 problems = { type = "list", label = "Problems" }
 language = { type = "text", label = "Language" }

@@ -1,5 +1,5 @@
 name = "crucible"
-version = "0.1.1"
+version = "0.2.0"
 protocol = 1
 command = ["./crucible"]
 capabilities = ["enrich"]
@@ -16,7 +16,7 @@ required = ["url"]
 url = { type = "string", title = "Service URL", description = "The crucible service, such as http://crucible.example:8080. Each card is sent to its POST /score." }
 
 [enrichments]
-quality = { type = "score", range = [0, 100], label = "Crucible quality", grid = true }
+quality = { type = "score", range = [0, 100], label = "Crucible quality", grid = true, priority = 200 }
 consistency = { type = "score", range = [0, 100], label = "Consistency" }
 voice = { type = "score", range = [0, 100], label = "Voice" }
 first_impression = { type = "score", range = [0, 100], label = "First impression" }

@@ -1,5 +1,5 @@
 name = "forge-ai"
-version = "0.7.0"
+version = "0.8.0"
 protocol = 1
 command = ["./forge-ai"]
 capabilities = ["action", "records", "enrich", "settings"]
@@ -74,7 +74,7 @@ lore-entries = { type = "string", title = "Write lore entries", contentMediaType
 evaluate = { type = "string", title = "Evaluate", contentMediaType = "text/plain" }
 
 [enrichments]
-quality = { type = "score", range = [0, 100], label = "Quality", grid = true }
+quality = { type = "score", range = [0, 100], label = "Quality", grid = true, priority = 300 }
 consistency = { type = "score", range = [0, 100], label = "Consistency" }
 voice = { type = "score", range = [0, 100], label = "Voice" }
 first_impression = { type = "score", range = [0, 100], label = "First impression" }
