@@ -35,3 +35,15 @@ func TestEmbedNeedsTexts(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// A refused key or a missing model fails every text alike, so it must not
+// read as the provider refusing this text.
+func TestEmbedAuthAndMissingModelAreNotAIRejected(t *testing.T) {
+	for _, status := range []int{401, 403, 404} {
+		h := started(t, withLLM(t, &fakeLLM{status: status}, "embed"))
+		err := h.call(protocol.MethodAIEmbed, protocol.AIEmbedParams{Texts: []string{"a"}}, nil)
+		if code := rpcCode(err); code != protocol.CodeFailed {
+			t.Errorf("%d: err = %v, want code %d", status, err, protocol.CodeFailed)
+		}
+	}
+}

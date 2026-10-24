@@ -134,10 +134,15 @@ func mergeToolCalls(provider string, calls, deltas []anyllm.ToolCall) []anyllm.T
 }
 
 // modelError gives a model failure the code a consumer branches on: a
-// refused request, which retrying won't fix, or a retryable one.
+// refused request, which retrying won't fix, or a retryable one. A refused
+// key or a missing model is the instance's fault, not the request's.
 func modelError(err error) error {
 	var provider *llmerrors.ProviderError
 	switch {
+	case errors.Is(err, llmerrors.ErrAuthentication), errors.Is(err, llmerrors.ErrMissingAPIKey),
+		errors.Is(err, llmerrors.ErrModelNotFound),
+		errors.As(err, &provider) && slices.Contains([]int{401, 403, 404}, provider.StatusCode):
+		return protocol.NewError(protocol.CodeFailed, err.Error(), false)
 	case errors.Is(err, llmerrors.ErrInvalidRequest), errors.Is(err, llmerrors.ErrUnsupportedParam),
 		errors.Is(err, llmerrors.ErrContextLength), errors.Is(err, llmerrors.ErrContentFilter):
 		return protocol.NewError(protocol.CodeAIRejected, err.Error(), false)
