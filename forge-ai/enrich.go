@@ -75,7 +75,7 @@ func (srv *server) enrich(ctx context.Context, in *instance, params json.RawMess
 			n := started.Add(1)
 			_ = in.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: p.Run, Done: n - 1, Total: int64(len(p.Revisions)),
 				Message: fmt.Sprintf("Evaluating %s (%d of %d)", revisionName(rev), n, len(p.Revisions))})
-			values, vm, err := srv.scores(ctx, in, p.Run, rev)
+			values, vm, err := srv.scores(ctx, in, p, rev)
 			if err != nil {
 				results[i] = protocol.EnrichResult{RevisionID: rev.RevisionID, Error: err.Error()}
 				return
@@ -98,16 +98,17 @@ type valueMeta struct {
 }
 
 // scores returns one revision's scores by enrichment key, each 0 to 100.
-// With a decide connection the decision model scores it; a failure or a
-// decision under the confidence threshold falls back to the chat model.
-func (srv *server) scores(ctx context.Context, in *instance, run string, rev protocol.EnrichRevision) (map[string]json.RawMessage, valueMeta, error) {
-	if in.settings.Decide != 0 {
+// Unless the run is thorough, a decide connection's model scores it first; a
+// failure or a decision under the confidence threshold falls back to the chat
+// model.
+func (srv *server) scores(ctx context.Context, in *instance, p protocol.EnrichRunParams, rev protocol.EnrichRevision) (map[string]json.RawMessage, valueMeta, error) {
+	if in.settings.Decide != 0 && !p.Thorough {
 		values, vm, err := srv.decideScores(ctx, in, rev)
 		if err == nil || ctx.Err() != nil {
 			return values, vm, err
 		}
 	}
-	return srv.evaluateScores(ctx, in, run, rev)
+	return srv.evaluateScores(ctx, in, p.Run, rev)
 }
 
 // evaluateScores runs evaluate on one revision with the chat model.

@@ -300,6 +300,21 @@ func TestEnrichEscalatesLowConfidenceToTheChatModel(t *testing.T) {
 	}
 }
 
+func TestEnrichThoroughSkipsDecide(t *testing.T) {
+	llm, cfg := withLLM(t, streamed(evaluated))
+	d := confident()
+	h := startPlugin(t, withDecider(t, cfg, d))
+	p := enrichParams("Brakka")
+	p.Thorough = true
+	res, err := h.enrich(t, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := values(t, res.Results[0]); got["quality"] != 82 || len(llm.requests) != 1 || len(d.requests) != 0 {
+		t.Fatalf("values %v, chat calls %d, decide calls %d", got, len(llm.requests), len(d.requests))
+	}
+}
+
 func TestEnrichFallsBackToChatWhenDecideFails(t *testing.T) {
 	llm, cfg := withLLM(t, streamed(evaluated))
 	d := &fakeDecider{err: protocol.NewError(protocol.CodeAIRejected, "prompt too long", false)}

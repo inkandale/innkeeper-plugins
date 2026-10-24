@@ -98,6 +98,8 @@ values' prompt version is `decide-` plus a hash of the questions.
 
 The chat model scores the card instead, with every dimension, when:
 
+- the run is thorough, as Rescore on a card's page is, so the card's score
+  matches its Forge report;
 - the decision call fails, such as a card too long for the server; or
 - the mean confidence of the four answers is below `escalate_below`,
   0.25 by default.

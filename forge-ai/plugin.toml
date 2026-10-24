@@ -1,5 +1,5 @@
 name = "forge-ai"
-version = "0.9.1"
+version = "0.9.2"
 protocol = 1
 command = ["./forge-ai"]
 capabilities = ["action", "records", "enrich", "settings"]
@@ -24,7 +24,7 @@ type = "integer"
 title = "Decision connection"
 format = "instance"
 x-offers = "ai.decide"
-description = "Optional. Scores cards for the library first, with one ai.decide call each: first impression, voice, roleplayability, and quality. Cards it fails on or isn't sure of go to the AI connection, which also scores consistency and token efficiency."
+description = "Optional. Scores cards in bulk first, with one ai.decide call each: first impression, voice, roleplayability, and quality. Cards it fails on or isn't sure of go to the AI connection, as does Rescore on a card's page. Only the AI connection scores consistency and token efficiency."
 
 [config.properties.concurrency]
 type = "integer"
