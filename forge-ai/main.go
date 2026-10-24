@@ -179,6 +179,11 @@ func (srv *server) perform(ctx context.Context, in *instance, r *run, offerTools
 	if err != nil {
 		return nil, err
 	}
+	if res.Report != nil {
+		if res.Values, res.Meta, err = reportValues(in.settings, r.model, res.Report); err != nil {
+			return nil, err
+		}
+	}
 	return &res, nil
 }
 

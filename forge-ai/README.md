@@ -81,6 +81,10 @@ prompt's version: `evaluate-` plus a hash of `prompts/evaluate.tmpl`, the
 house style, the Evaluate override, and the temperature and max tokens sent.
 Scores whose versions differ came from different setups.
 
+Evaluate on a saved card with no unsaved edits stores the same scores, so
+the grid shows the report's numbers and a later scoring run skips that
+revision.
+
 ### Scoring with a decision model
 
 With `decide` set to an `ai` instance offering `ai.decide`, such as a

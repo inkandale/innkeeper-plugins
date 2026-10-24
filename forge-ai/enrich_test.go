@@ -354,3 +354,19 @@ func TestEnrichScoresConcurrentlyInOrder(t *testing.T) {
 		t.Fatalf("progress %+v", h.progress)
 	}
 }
+
+func TestEvaluateRunSendsItsScoresAsValues(t *testing.T) {
+	_, cfg := withLLM(t, streamed(evaluated))
+	h := startPlugin(t, cfg)
+	res, err := h.run(t, sampleRun(t, "evaluate"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(res.Values["quality"]) != "82" || string(res.Values["voice"]) != "100" || len(res.Values) != 7 {
+		t.Fatalf("values %v", res.Values)
+	}
+	var meta map[string]string
+	if err := json.Unmarshal(res.Meta, &meta); err != nil || !strings.HasPrefix(meta["prompt"], "evaluate-") {
+		t.Fatalf("meta %s: %v", res.Meta, err)
+	}
+}

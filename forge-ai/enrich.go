@@ -112,10 +112,6 @@ func (srv *server) scores(ctx context.Context, in *instance, run string, rev pro
 
 // evaluateScores runs evaluate on one revision with the chat model.
 func (srv *server) evaluateScores(ctx context.Context, in *instance, run string, rev protocol.EnrichRevision) (map[string]json.RawMessage, valueMeta, error) {
-	prompt, err := evaluatePrompt(in.settings)
-	if err != nil {
-		return nil, valueMeta{}, err
-	}
 	r, err := parseRun(protocol.ActionRunParams{Run: run, Action: "evaluate",
 		Entity: protocol.ActionEntity{Kind: "card", Data: rev.Data}})
 	if err != nil {
@@ -125,20 +121,33 @@ func (srv *server) evaluateScores(ctx context.Context, in *instance, run string,
 	if err != nil {
 		return nil, valueMeta{}, err
 	}
+	if len(res.Values) == 0 {
+		return nil, valueMeta{}, errors.New("the model's evaluation has no scores")
+	}
+	var vm valueMeta
+	err = json.Unmarshal(res.Meta, &vm)
+	return res.Values, vm, err
+}
+
+// reportValues are a report's scores by enrichment key, each clamped to 0 to
+// 100, and the meta to store with them.
+func reportValues(s settings, model string, rep *protocol.Report) (map[string]json.RawMessage, json.RawMessage, error) {
+	prompt, err := evaluatePrompt(s)
+	if err != nil {
+		return nil, nil, err
+	}
 	values := map[string]json.RawMessage{}
 	add := func(key string, score float64) {
 		values[key], _ = json.Marshal(min(max(score, 0), 100))
 	}
-	if res.Report.Score != nil {
-		add(qualityKey, *res.Report.Score)
+	if rep.Score != nil {
+		add(qualityKey, *rep.Score)
 	}
-	for _, d := range res.Report.Dimensions {
+	for _, d := range rep.Dimensions {
 		add(d.Key, d.Score)
 	}
-	if len(values) == 0 {
-		return nil, valueMeta{}, errors.New("the model's evaluation has no scores")
-	}
-	return values, valueMeta{Model: r.model, Prompt: prompt}, nil
+	meta, err := json.Marshal(valueMeta{Model: model, Prompt: prompt})
+	return values, meta, err
 }
 
 // revisionName is the card's name for progress messages.
