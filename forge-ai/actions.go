@@ -280,6 +280,7 @@ type evaluation struct {
 	Contradictions []struct {
 		Fields []string `json:"fields"`
 		Issue  string   `json:"issue"`
+		Fix    string   `json:"fix"`
 	} `json:"contradictions"`
 	MisplacedContent []struct {
 		Excerpt        string `json:"excerpt"`
@@ -307,7 +308,11 @@ func report(obj map[string]json.RawMessage) (*protocol.Report, error) {
 	}
 	for _, c := range e.Contradictions {
 		if strings.TrimSpace(c.Issue) != "" {
-			r.Findings = append(r.Findings, protocol.Finding{Severity: "high", Text: c.Issue, Fields: c.Fields})
+			text := c.Issue
+			if fix := strings.TrimSpace(c.Fix); fix != "" {
+				text += " Fix: " + fix
+			}
+			r.Findings = append(r.Findings, protocol.Finding{Severity: "high", Text: text, Fields: c.Fields})
 		}
 	}
 	for _, m := range e.MisplacedContent {

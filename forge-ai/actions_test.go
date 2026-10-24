@@ -78,7 +78,7 @@ func TestProposalRefusesWrongTypes(t *testing.T) {
 func TestEvaluateReport(t *testing.T) {
 	out := `{"summary": "Solid **orc**.", "overall_score": 78, "card_type": "character",
 		"dimensions": {"voice": {"score": 88, "comment": "Distinct."}, "consistency": {"score": 70, "comment": "Mostly."}},
-		"contradictions": [{"fields": ["personality", "first_mes"], "issue": "Gruff, yet chatty."}],
+		"contradictions": [{"fields": ["personality", "first_mes"], "issue": "Gruff, yet chatty.", "fix": "Make first_mes curt."}],
 		"misplaced_content": [{"excerpt": "Always reply in 3 lines", "current_field": "description", "suggested_field": "post_history_instructions", "reason": "Per-turn rule."}],
 		"suggestions": ["Add a system prompt."]}`
 	res := result(t, sampleRun(t, "evaluate"), out)
@@ -96,7 +96,7 @@ func TestEvaluateReport(t *testing.T) {
 	if len(r.Dimensions) != 2 || r.Dimensions[0].Key != "consistency" || r.Dimensions[1].Label != "Voice" {
 		t.Fatalf("dimensions %+v", r.Dimensions)
 	}
-	if len(r.Findings) != 2 || r.Findings[0].Severity != "high" || r.Findings[1].Move == nil ||
+	if len(r.Findings) != 2 || r.Findings[0].Severity != "high" || r.Findings[0].Text != "Gruff, yet chatty. Fix: Make first_mes curt." || r.Findings[1].Move == nil ||
 		r.Findings[1].Move.To != "post_history_instructions" || r.Findings[1].Fields[0] != "description" {
 		t.Fatalf("findings %+v", r.Findings)
 	}

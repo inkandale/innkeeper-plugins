@@ -26,9 +26,11 @@ Apply type-specific rules below. Do not apply character card rules to scenario c
 
 ## Step 3: Identify Issues
 
-**contradictions**: Fields that conflict with each other (personality says X but first message shows Y)
+**contradictions**: Fields that conflict with each other (personality says X but first message shows Y). Each fix names the field to change and what it should say instead, such as "Rewrite first_mes so she greets {{user}} shyly, as description says." Keep the version that the rest of the card supports.
 
 **misplaced_content**: Content clearly in the wrong field — apply card-type rules, don't flag correct scenario card structure
+
+Report each problem once: in contradictions or misplaced_content, not both, and never twice in one list.
 
 **suggestions**: Improvements that no contradiction or misplaced_content entry already covers, such as content the card is missing. Never restate an entry from those lists. Ordered by impact (most important first). Be specific and actionable. Max 5; an empty list is fine.
 [[- end]]
@@ -55,7 +57,7 @@ Return ONLY valid JSON, with no code fence or commentary:
     "token_efficiency": { "score": <0-100>, "comment": "<specific observation>" },
     "field_governance": { "score": <0-100>, "comment": "<specific observation>" }
   },
-  "contradictions": [{ "fields": ["field1", "field2"], "issue": "<description>" }],
+  "contradictions": [{ "fields": ["field1", "field2"], "issue": "<description>", "fix": "<which field to change, and how>" }],
   "misplaced_content": [{ "excerpt": "<short quote>", "current_field": "<field>", "suggested_field": "<field>", "reason": "<why>" }],
   "suggestions": ["<highest impact>", "<second>", "<third>"]
 }
