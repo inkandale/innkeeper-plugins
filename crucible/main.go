@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/inkandale/innkeeper/protocol"
@@ -45,8 +44,8 @@ func main() {
 	})
 }
 
-// enrich scores a batch's revisions at once. One revision's failure is its
-// own error; the rest of the batch goes on.
+// enrich scores a batch's revisions one at a time: the service scores serially,
+// so parallel requests would wait out the client timeout in its queue.
 func enrich(ctx context.Context, s *settings, params json.RawMessage) (*protocol.EnrichRunResult, error) {
 	if s.URL == "" {
 		return nil, errors.New("set the service URL")
@@ -59,15 +58,9 @@ func enrich(ctx context.Context, s *settings, params json.RawMessage) (*protocol
 		return nil, protocol.InvalidParams(fmt.Errorf("revisions must hold 1 to %d", protocol.MaxEnrichBatch))
 	}
 	results := make([]protocol.EnrichResult, len(p.Revisions))
-	var wg sync.WaitGroup
 	for i, rev := range p.Revisions {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			results[i] = score(ctx, s, rev)
-		}()
+		results[i] = score(ctx, s, rev)
 	}
-	wg.Wait()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

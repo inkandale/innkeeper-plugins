@@ -6,13 +6,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/inkandale/innkeeper/protocol"
 )
 
 func TestEnrichForwardsEachRevision(t *testing.T) {
-	var mu sync.Mutex // enrich sends a batch's revisions at once
+	var mu sync.Mutex // guards got against the handler goroutines
 	var got []map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
@@ -56,5 +58,33 @@ func TestEnrichFailsWithoutAURL(t *testing.T) {
 	}})
 	if _, err := enrich(context.Background(), &s, params); err == nil || err.Error() != "set the service URL" {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// The service scores one card at a time, so a request sent alongside others
+// waits its turn inside the client timeout.
+func TestEnrichSendsOneRevisionAtATime(t *testing.T) {
+	var inFlight, most atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := inFlight.Add(1)
+		defer inFlight.Add(-1)
+		if n > most.Load() {
+			most.Store(n)
+		}
+		time.Sleep(20 * time.Millisecond)
+		_, _ = w.Write([]byte(`{"values":{"quality":1}}`))
+	}))
+	defer srv.Close()
+
+	var revs []protocol.EnrichRevision
+	for i := range 5 {
+		revs = append(revs, protocol.EnrichRevision{CardID: int64(i), RevisionID: int64(i), Data: json.RawMessage(`{}`)})
+	}
+	params, _ := json.Marshal(protocol.EnrichRunParams{Run: "r", Revisions: revs})
+	if _, err := enrich(context.Background(), &settings{URL: srv.URL}, params); err != nil {
+		t.Fatal(err)
+	}
+	if got := most.Load(); got != 1 {
+		t.Fatalf("%d requests in flight at once, want 1", got)
 	}
 }
