@@ -65,7 +65,7 @@ var actions = []action{
 		Applies: protocol.ApplyLorebook, Instruction: true, Library: true,
 		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Entries", "minimum": 1, "maximum": 20, "default": 5}}}`)}, 0.7, 8192, entriesAppender},
 	{protocol.Action{ID: "evaluate", Label: "Evaluate", Description: "Score the card on six dimensions and list its problems.",
-		Applies: protocol.ApplyCard, ReportOnly: true}, 0.3, 4096, nil},
+		Applies: protocol.ApplyCard, ReportOnly: true}, 0, 4096, nil},
 }
 
 // limits are the temperature and max tokens a's runs send: the instance's
@@ -301,10 +301,17 @@ func report(obj map[string]json.RawMessage) (*protocol.Report, error) {
 		return nil, fmt.Errorf("the model's evaluation: %w", err)
 	}
 	r := &protocol.Report{Summary: e.Summary, Score: e.OverallScore, Suggestions: e.Suggestions}
+	var sum float64
 	for _, d := range dimensions {
 		if v, ok := e.Dimensions[d.key]; ok && v.Score != nil {
 			r.Dimensions = append(r.Dimensions, protocol.ReportDimension{Key: d.key, Label: d.label, Score: *v.Score, Comment: v.Comment})
+			sum += min(max(*v.Score, 0), 100)
 		}
+	}
+	// The dimensions' mean varies less between runs than the model's own overall score.
+	if n := len(r.Dimensions); n > 0 {
+		mean := sum / float64(n)
+		r.Score = &mean
 	}
 	for _, c := range e.Contradictions {
 		if strings.TrimSpace(c.Issue) != "" {

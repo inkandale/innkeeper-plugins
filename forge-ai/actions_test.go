@@ -89,7 +89,8 @@ func TestEvaluateReport(t *testing.T) {
 	if err := r.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if r.Summary != "Solid **orc**." || r.Score == nil || *r.Score != 78 {
+	// The score is the dimensions' mean, not the model's overall_score.
+	if r.Summary != "Solid **orc**." || r.Score == nil || *r.Score != 79 {
 		t.Fatalf("summary %q, score %v", r.Summary, r.Score)
 	}
 	// Dimensions keep the prompt's order, not the model's.

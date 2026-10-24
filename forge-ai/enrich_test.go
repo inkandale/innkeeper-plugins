@@ -55,7 +55,7 @@ func TestEnrichMapsEvaluationToDeclaredKeys(t *testing.T) {
 		}
 		got[k] = n
 	}
-	want := map[string]float64{"quality": 82, "consistency": 90, "voice": 100, "first_impression": 0,
+	want := map[string]float64{"quality": 61.75, "consistency": 90, "voice": 100, "first_impression": 0,
 		"roleplayability": 70, "token_efficiency": 60.5, "field_governance": 50}
 	if !maps.Equal(got, want) {
 		t.Fatalf("values %v, want %v (out-of-range scores clamped)", got, want)
@@ -292,7 +292,7 @@ func TestEnrichEscalatesLowConfidenceToTheChatModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := res.Results[0]
-	if got := values(t, r); got["consistency"] != 90 || got["quality"] != 82 {
+	if got := values(t, r); got["consistency"] != 90 || got["quality"] != 61.75 {
 		t.Fatalf("values %v, want the chat model's", got)
 	}
 	if !strings.Contains(string(r.Meta), `"evaluate-`) || len(llm.requests) != 1 {
@@ -310,7 +310,7 @@ func TestEnrichThoroughSkipsDecide(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := values(t, res.Results[0]); got["quality"] != 82 || len(llm.requests) != 1 || len(d.requests) != 0 {
+	if got := values(t, res.Results[0]); got["quality"] != 61.75 || len(llm.requests) != 1 || len(d.requests) != 0 {
 		t.Fatalf("values %v, chat calls %d, decide calls %d", got, len(llm.requests), len(d.requests))
 	}
 }
@@ -323,7 +323,7 @@ func TestEnrichFallsBackToChatWhenDecideFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := values(t, res.Results[0]); got["quality"] != 82 || len(llm.requests) != 1 {
+	if got := values(t, res.Results[0]); got["quality"] != 61.75 || len(llm.requests) != 1 {
 		t.Fatalf("values %v, chat calls %d", got, len(llm.requests))
 	}
 }
@@ -377,7 +377,7 @@ func TestEvaluateRunSendsItsScoresAsValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(res.Values["quality"]) != "82" || string(res.Values["voice"]) != "100" || len(res.Values) != 7 {
+	if string(res.Values["quality"]) != "61.75" || string(res.Values["voice"]) != "100" || len(res.Values) != 7 {
 		t.Fatalf("values %v", res.Values)
 	}
 	var meta map[string]string

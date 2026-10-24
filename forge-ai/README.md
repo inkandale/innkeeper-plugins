@@ -62,7 +62,7 @@ picks, one model call per card, and stores its scores, all 0 to 100:
 
 | Key | Score |
 |---|---|
-| `quality` | The overall score, shown on the library grid |
+| `quality` | The mean of the dimensions, shown on the library grid and as the report's score |
 | `consistency`, `voice`, `first_impression`, `roleplayability`, `token_efficiency`, `field_governance` | Each evaluate dimension |
 
 A score outside 0 to 100 is clamped to the nearest end, and a dimension
