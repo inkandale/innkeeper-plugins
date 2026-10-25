@@ -179,7 +179,7 @@ func (srv *server) perform(ctx context.Context, in *instance, r *run, offerTools
 	if err != nil {
 		return nil, err
 	}
-	if res.Report != nil {
+	if r.evaluates != nil && r.evaluates.enriches {
 		if res.Values, res.Meta, err = reportValues(in.settings, r.model, res.Report); err != nil {
 			return nil, err
 		}
@@ -193,7 +193,7 @@ var labels = map[string]string{"name": "Name", "description": "Description", "pe
 	"system_prompt": "System prompt", "post_history_instructions": "Post-history instructions",
 	"creator_notes": "Creator notes", "summary": "Summary", "overall_score": "Score", "card_type": "Card type",
 	"dimensions": "Dimensions", "contradictions": "Contradictions", "misplaced_content": "Misplaced content",
-	"suggestions": "Suggestions"}
+	"problems": "Problems", "suggestions": "Suggestions"}
 
 // label names a card key in progress messages.
 func label(key string) string {

@@ -74,11 +74,14 @@ func TestEveryActionRenders(t *testing.T) {
 		if a.Applies == protocol.ApplyNew && !strings.Contains(system, "{{char}}") {
 			t.Errorf("%s: system prompt lost the roleplay macros", a.ID)
 		}
-		if a.Applies != protocol.ApplyNew && !strings.Contains(user, "guards {{user}}") {
+		if a.Applies == protocol.ApplyCard && !strings.Contains(user, "guards {{user}}") {
 			t.Errorf("%s: user prompt lost the card's macros", a.ID)
 		}
-		if a.Applies != protocol.ApplyNew && !strings.Contains(user, "<START>") {
+		if a.Applies == protocol.ApplyCard && !strings.Contains(user, "<START>") {
 			t.Errorf("%s: user prompt escaped the card's <START>", a.ID)
+		}
+		if a.Applies == protocol.ApplyLorebook && !strings.Contains(user, "Brakka guards the pass & the gate.") {
+			t.Errorf("%s: user prompt lacks the lorebook or escaped it", a.ID)
 		}
 		if len(keys) == 0 {
 			t.Errorf("%s: writes no keys", a.ID)
@@ -88,7 +91,7 @@ func TestEveryActionRenders(t *testing.T) {
 				t.Errorf("%s: system prompt never names key %q", a.ID, k)
 			}
 		}
-		if a.Applies != protocol.ApplyNew && !strings.Contains(user, "very tall orc") {
+		if a.Applies == protocol.ApplyCard && !strings.Contains(user, "very tall orc") {
 			t.Errorf("%s: user prompt lacks the card", a.ID)
 		}
 	}
@@ -124,6 +127,12 @@ func TestPromptsCarryRunInputs(t *testing.T) {
 	}
 	if strings.Contains(user, "insertion_order") {
 		t.Errorf("lore-entries: the model sees entry settings:\n%s", user)
+	}
+	p = sampleRun(t, "evaluate-lorebook")
+	p.Entity.Data = json.RawMessage(`{"entries": [{"keys": ["pass"], "secondary_keys": ["gate"], "constant": true, "content": "Snowbound.", "insertion_order": 9}]}`)
+	_, user, _ = render(t, p, settings{})
+	if !strings.Contains(user, `"secondary_keys": [`) || !strings.Contains(user, `"constant": true`) || strings.Contains(user, "insertion_order") {
+		t.Errorf("evaluate-lorebook: the model doesn't see how entries trigger:\n%s", user)
 	}
 	for pov, want := range map[string]string{"first": "first person", "third": "third person", "scenario": "scenario card"} {
 		p := sampleRun(t, "generate")

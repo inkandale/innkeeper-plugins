@@ -124,7 +124,35 @@ func (r *run) sentLorebook() (map[string]any, error) {
 		return nil, err
 	}
 	book["entries"] = briefEntries(list)
+	if r.evaluates != nil {
+		book["entries"] = reviewedEntries(list)
+	}
 	return book, nil
+}
+
+// reviewedEntry is what an evaluation sees of an entry: also what else a
+// chat must mention to insert it, and whether it's always inserted.
+type reviewedEntry struct {
+	briefEntry
+	SecondaryKeys []string `json:"secondary_keys,omitempty"`
+	Constant      bool     `json:"constant,omitempty"`
+}
+
+// reviewedEntries is what an evaluation sees of the draft's entries, read
+// as leniently as briefEntries.
+func reviewedEntries(list []json.RawMessage) []reviewedEntry {
+	out := []reviewedEntry{}
+	for _, raw := range list {
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(raw, &fields) != nil || fields == nil {
+			continue
+		}
+		e := reviewedEntry{briefEntry: briefEntries([]json.RawMessage{raw})[0]}
+		_ = json.Unmarshal(fields["secondary_keys"], &e.SecondaryKeys)
+		_ = json.Unmarshal(fields["constant"], &e.Constant)
+		out = append(out, e)
+	}
+	return out
 }
 
 // withEntries adds the model's new entries after the draft's, which keep

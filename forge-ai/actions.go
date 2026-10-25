@@ -26,9 +26,6 @@ var povFields = []string{"description", "personality", "scenario", "first_mes", 
 var generatedKeys = []string{"name", "description", "personality", "scenario", "first_mes", "mes_example", "tags",
 	"system_prompt", "post_history_instructions"}
 
-var evaluationKeys = []string{"summary", "overall_score", "card_type", "dimensions", "contradictions",
-	"misplaced_content", "suggestions"}
-
 // action is one declared action and how it runs.
 type action struct {
 	protocol.Action
@@ -36,6 +33,8 @@ type action struct {
 	maxTokens   int
 	// appends is set for an action that adds to a list instead of replacing keys.
 	appends *appender
+	// evaluates is set for a report-only action.
+	evaluates *evaluator
 }
 
 const povSchema = `{"type": "object", "properties": {"point_of_view": {"type": "string", "title": "Point of view", "enum": [%s]}}%s}`
@@ -43,29 +42,31 @@ const povSchema = `{"type": "object", "properties": {"point_of_view": {"type": "
 var actions = []action{
 	{protocol.Action{ID: "generate", Label: "Forge", Description: "Write a new card from a concept.",
 		Applies: protocol.ApplyNew, Instruction: true, Library: true, Images: true,
-		Inputs: json.RawMessage(fmt.Sprintf(povSchema, `"first", "third", "scenario"`, ""))}, 0.8, 8192, nil},
+		Inputs: json.RawMessage(fmt.Sprintf(povSchema, `"first", "third", "scenario"`, ""))}, 0.8, 8192, nil, nil},
 	{protocol.Action{ID: "revise", Label: "Revise", Description: "Change it as you describe.",
-		Applies: protocol.ApplyCard, Fields: cardKeys, WholeCard: true, Instruction: true, Library: true}, 0.7, 4096, nil},
+		Applies: protocol.ApplyCard, Fields: cardKeys, WholeCard: true, Instruction: true, Library: true}, 0.7, 4096, nil, nil},
 	{protocol.Action{ID: "tighten", Label: "Tighten", Description: "Cut filler and repetition; keep every fact.",
-		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, 0.5, 4096, nil},
+		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, 0.5, 4096, nil, nil},
 	{protocol.Action{ID: "expand", Label: "Expand", Description: "Add concrete detail without changing what's there.",
-		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, 0.8, 4096, nil},
+		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, 0.8, 4096, nil, nil},
 	{protocol.Action{ID: "to-prose", Label: "Convert to prose", Description: "Turn lists and bracket formats into paragraphs.",
-		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, 0.5, 4096, nil},
+		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, 0.5, 4096, nil, nil},
 	{protocol.Action{ID: "change-pov", Label: "Change point of view", Description: "Switch between first and third person.",
 		Applies: protocol.ApplyCard, Fields: povFields, WholeCard: true,
-		Inputs: json.RawMessage(fmt.Sprintf(povSchema, `"first", "third"`, `, "required": ["point_of_view"]`))}, 0.6, 4096, nil},
+		Inputs: json.RawMessage(fmt.Sprintf(povSchema, `"first", "third"`, `, "required": ["point_of_view"]`))}, 0.6, 4096, nil, nil},
 	{protocol.Action{ID: "examples", Label: "Write examples", Description: "Replace the example dialogue with new exchanges.",
 		Applies: protocol.ApplyCard, Fields: []string{"mes_example"},
-		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Examples", "minimum": 1, "maximum": 10, "default": 3}}}`)}, 0.8, 4096, nil},
+		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Examples", "minimum": 1, "maximum": 10, "default": 3}}}`)}, 0.8, 4096, nil, nil},
 	{protocol.Action{ID: "alternate-greetings", Label: "Write alternate greetings", Description: "Add new opening messages to the card.",
 		Applies: protocol.ApplyCard, Library: true,
-		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Greetings", "minimum": 1, "maximum": 10, "default": 3}}}`)}, 0.9, 8192, greetingsAppender},
+		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Greetings", "minimum": 1, "maximum": 10, "default": 3}}}`)}, 0.9, 8192, greetingsAppender, nil},
 	{protocol.Action{ID: "lore-entries", Label: "Write lore entries", Description: "Add entries about what you describe, from the cards you mention.",
 		Applies: protocol.ApplyLorebook, Instruction: true, Library: true,
-		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Entries", "minimum": 1, "maximum": 20, "default": 5}}}`)}, 0.7, 8192, entriesAppender},
+		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Entries", "minimum": 1, "maximum": 20, "default": 5}}}`)}, 0.7, 8192, entriesAppender, nil},
 	{protocol.Action{ID: "evaluate", Label: "Evaluate", Description: "Score the card on six dimensions and list its problems.",
-		Applies: protocol.ApplyCard, ReportOnly: true}, 0, 4096, nil},
+		Applies: protocol.ApplyCard, ReportOnly: true}, 0, 4096, nil, cardEvaluator},
+	{protocol.Action{ID: "evaluate-lorebook", Label: "Evaluate", Description: "Score the lorebook on five dimensions and list its problems.",
+		Applies: protocol.ApplyLorebook, ReportOnly: true}, 0, 8192, nil, lorebookEvaluator},
 }
 
 // limits are the temperature and max tokens a's runs send: the instance's
@@ -163,8 +164,8 @@ func (r *run) writes() []string {
 	switch {
 	case r.appends != nil:
 		return []string{r.appends.key}
-	case r.ReportOnly:
-		return evaluationKeys
+	case r.evaluates != nil:
+		return r.evaluates.keys
 	case len(r.Fields) > 0:
 		return []string{r.Field}
 	case r.pointOfView == "scenario":
@@ -224,8 +225,8 @@ func (r *run) result(output string) (protocol.ActionRunResult, error) {
 		return res, err
 	}
 	switch {
-	case r.ReportOnly:
-		res.Report, err = report(obj)
+	case r.evaluates != nil:
+		res.Report, err = r.evaluates.report(obj)
 	case r.appends != nil:
 		res.Proposal, err = r.appends.merge(r, obj[r.appends.key])
 	default:
@@ -263,13 +264,64 @@ func (r *run) proposal(got map[string]json.RawMessage) (json.RawMessage, error) 
 	return json.Marshal(out)
 }
 
-// dimensions are evaluate's, in its prompt's order.
-var dimensions = []struct{ key, label string }{
-	{"consistency", "Consistency"}, {"voice", "Voice"}, {"first_impression", "First impression"},
-	{"roleplayability", "Roleplayability"}, {"token_efficiency", "Token efficiency"}, {"field_governance", "Field governance"},
+// evaluator is how a report-only action's evaluation becomes a report.
+type evaluator struct {
+	keys []string // the keys the model returns
+	// dimensions are scored, in the prompt's order.
+	dimensions []dimension
+	// enriches is set when the dimensions are the card enrichments the manifest declares.
+	enriches bool
 }
 
-// evaluation is the JSON evaluate's prompt asks for.
+type dimension struct{ key, label string }
+
+var cardEvaluator = &evaluator{
+	keys: []string{"summary", "overall_score", "card_type", "dimensions", "contradictions", "misplaced_content", "suggestions"},
+	dimensions: []dimension{
+		{"consistency", "Consistency"}, {"voice", "Voice"}, {"first_impression", "First impression"},
+		{"roleplayability", "Roleplayability"}, {"token_efficiency", "Token efficiency"}, {"field_governance", "Field governance"},
+	},
+	enriches: true,
+}
+
+var lorebookEvaluator = &evaluator{
+	keys: []string{"summary", "overall_score", "dimensions", "contradictions", "problems", "suggestions"},
+	dimensions: []dimension{
+		{"triggers", "Triggers"}, {"consistency", "Consistency"}, {"focus", "Focus"},
+		{"usefulness", "Usefulness"}, {"token_efficiency", "Token efficiency"},
+	},
+}
+
+// issue is a problem the model reports: in a card's fields, or in a
+// lorebook's entries, named by title.
+type issue struct {
+	Fields  []string `json:"fields"`
+	Entries []string `json:"entries"`
+	Issue   string   `json:"issue"`
+	Fix     string   `json:"fix"`
+}
+
+// finding is i as a finding, or false when it says nothing. Named entries
+// lead the text, and the finding sits under the entries.
+func (i issue) finding(severity string) (protocol.Finding, bool) {
+	text := strings.TrimSpace(i.Issue)
+	if text == "" {
+		return protocol.Finding{}, false
+	}
+	fields := i.Fields
+	if len(i.Entries) > 0 {
+		text = strings.Join(i.Entries, ", ") + ": " + text
+		if len(fields) == 0 {
+			fields = []string{"entries"}
+		}
+	}
+	if fix := strings.TrimSpace(i.Fix); fix != "" {
+		text += " Fix: " + fix
+	}
+	return protocol.Finding{Severity: severity, Text: text, Fields: fields}, true
+}
+
+// evaluation is the JSON the evaluate prompts ask for.
 type evaluation struct {
 	Summary      string   `json:"summary"`
 	OverallScore *float64 `json:"overall_score"`
@@ -277,11 +329,8 @@ type evaluation struct {
 		Score   *float64 `json:"score"`
 		Comment string   `json:"comment"`
 	} `json:"dimensions"`
-	Contradictions []struct {
-		Fields []string `json:"fields"`
-		Issue  string   `json:"issue"`
-		Fix    string   `json:"fix"`
-	} `json:"contradictions"`
+	Contradictions   []issue `json:"contradictions"`
+	Problems         []issue `json:"problems"`
 	MisplacedContent []struct {
 		Excerpt        string `json:"excerpt"`
 		CurrentField   string `json:"current_field"`
@@ -291,7 +340,7 @@ type evaluation struct {
 	Suggestions []string `json:"suggestions"`
 }
 
-func report(obj map[string]json.RawMessage) (*protocol.Report, error) {
+func (ev *evaluator) report(obj map[string]json.RawMessage) (*protocol.Report, error) {
 	b, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
@@ -302,7 +351,7 @@ func report(obj map[string]json.RawMessage) (*protocol.Report, error) {
 	}
 	r := &protocol.Report{Summary: e.Summary, Score: e.OverallScore, Suggestions: e.Suggestions}
 	var sum float64
-	for _, d := range dimensions {
+	for _, d := range ev.dimensions {
 		if v, ok := e.Dimensions[d.key]; ok && v.Score != nil {
 			r.Dimensions = append(r.Dimensions, protocol.ReportDimension{Key: d.key, Label: d.label, Score: *v.Score, Comment: v.Comment})
 			sum += min(max(*v.Score, 0), 100)
@@ -314,12 +363,13 @@ func report(obj map[string]json.RawMessage) (*protocol.Report, error) {
 		r.Score = &mean
 	}
 	for _, c := range e.Contradictions {
-		if strings.TrimSpace(c.Issue) != "" {
-			text := c.Issue
-			if fix := strings.TrimSpace(c.Fix); fix != "" {
-				text += " Fix: " + fix
-			}
-			r.Findings = append(r.Findings, protocol.Finding{Severity: "high", Text: text, Fields: c.Fields})
+		if f, ok := c.finding("high"); ok {
+			r.Findings = append(r.Findings, f)
+		}
+	}
+	for _, p := range e.Problems {
+		if f, ok := p.finding("medium"); ok {
+			r.Findings = append(r.Findings, f)
 		}
 	}
 	for _, m := range e.MisplacedContent {

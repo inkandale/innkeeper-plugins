@@ -140,7 +140,7 @@ func TestEnrichmentsMatchDimensions(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{qualityKey: "Quality"}
-	for _, d := range dimensions {
+	for _, d := range cardEvaluator.dimensions {
 		want[d.key] = d.label
 	}
 	got := map[string]string{}
@@ -383,5 +383,18 @@ func TestEvaluateRunSendsItsScoresAsValues(t *testing.T) {
 	var meta map[string]string
 	if err := json.Unmarshal(res.Meta, &meta); err != nil || !strings.HasPrefix(meta["prompt"], "evaluate-") {
 		t.Fatalf("meta %s: %v", res.Meta, err)
+	}
+}
+
+// A lorebook's scores aren't card enrichments, so its report stores none.
+func TestEvaluateLorebookSendsNoValues(t *testing.T) {
+	_, cfg := withLLM(t, streamed(`{"summary": "Fine.", "dimensions": {"coverage": {"score": 70}}}`))
+	h := startPlugin(t, cfg)
+	res, err := h.run(t, sampleRun(t, "evaluate-lorebook"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Report == nil || len(res.Values) != 0 || res.Meta != nil {
+		t.Fatalf("result %+v", res)
 	}
 }

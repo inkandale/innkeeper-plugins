@@ -106,6 +106,29 @@ func TestEvaluateReport(t *testing.T) {
 	}
 }
 
+func TestEvaluateLorebookReport(t *testing.T) {
+	out := `{"summary": "Thin.", "overall_score": 90,
+		"dimensions": {"triggers": {"score": 40, "comment": "Too broad."}, "consistency": {"score": 80, "comment": "Fine."}},
+		"contradictions": [{"entries": ["Brakka", "The pass"], "issue": "Two different gatekeepers.", "fix": "Pick one."}],
+		"problems": [{"entries": ["Brakka"], "issue": "Key \"the\" fires on every message."}],
+		"suggestions": ["Add an entry for the clans."]}`
+	res := result(t, sampleRun(t, "evaluate-lorebook"), out)
+	r := res.Report
+	if r == nil || res.Proposal != nil {
+		t.Fatalf("result %+v", res)
+	}
+	if r.Score == nil || *r.Score != 60 || len(r.Dimensions) != 2 || r.Dimensions[0].Key != "triggers" || r.Dimensions[1].Label != "Consistency" {
+		t.Fatalf("score %v, dimensions %+v", r.Score, r.Dimensions)
+	}
+	want := []protocol.Finding{
+		{Severity: "high", Text: "Brakka, The pass: Two different gatekeepers. Fix: Pick one.", Fields: []string{"entries"}},
+		{Severity: "medium", Text: `Brakka: Key "the" fires on every message.`, Fields: []string{"entries"}},
+	}
+	if !reflect.DeepEqual(r.Findings, want) {
+		t.Fatalf("findings %+v", r.Findings)
+	}
+}
+
 func TestRunInputsChecked(t *testing.T) {
 	bad := map[string]func(*protocol.ActionRunParams){
 		"unknown action":    func(p *protocol.ActionRunParams) { p.Action = "nope" },
@@ -152,12 +175,12 @@ func TestTagsAsCommaSeparatedText(t *testing.T) {
 	}
 }
 
-func TestTheTenActions(t *testing.T) {
+func TestTheElevenActions(t *testing.T) {
 	var ids []string
 	for _, a := range actions {
 		ids = append(ids, a.ID)
 	}
-	want := []string{"generate", "revise", "tighten", "expand", "to-prose", "change-pov", "examples", "alternate-greetings", "lore-entries", "evaluate"}
+	want := []string{"generate", "revise", "tighten", "expand", "to-prose", "change-pov", "examples", "alternate-greetings", "lore-entries", "evaluate", "evaluate-lorebook"}
 	if !slices.Equal(ids, want) {
 		t.Fatalf("actions %v, want %v", ids, want)
 	}

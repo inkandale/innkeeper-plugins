@@ -83,10 +83,10 @@ description = "Import cards and lorebooks from Illarin as a connected app: a wor
 name = "forge-ai"
 category = "AI"
 path = "forge-ai"
-version = "0.9.3"
+version = "0.10.0"
 protocol = 1
 capabilities = ["action", "records", "enrich", "settings"]
-description = "Write, revise, tighten, expand, and evaluate cards, write examples, alternate greetings, and lore entries, and score cards in bulk for the library grid, through an ai instance. Each action's instructions can be overridden on the Prompts tab. Keeps Agent Skills the model can load. Needs a core with the ai, action, records, enrich, and settings capabilities, and an ai instance offering chat."
+description = "Write, revise, tighten, expand, and evaluate cards, evaluate lorebooks, write examples, alternate greetings, and lore entries, and score cards in bulk for the library grid, through an ai instance. Each action's instructions can be overridden on the Prompts tab. Keeps Agent Skills the model can load. Needs a core with the ai, action, records, enrich, and settings capabilities, and an ai instance offering chat."
 
 [[plugin]]
 name = "ai"

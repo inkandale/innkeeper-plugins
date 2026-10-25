@@ -41,7 +41,7 @@ type promptData struct {
 // promptKeys are the instructions blocks, in the Prompts tab's order. Each is
 // a setting under prompts and a template named <key>.instructions.
 var promptKeys = []string{"whole-card", "generate-first", "generate-third", "generate-scenario", "revise", "tighten", "expand",
-	"to-prose", "change-pov", "examples", "alternate-greetings", "lore-entries", "evaluate"}
+	"to-prose", "change-pov", "examples", "alternate-greetings", "lore-entries", "evaluate", "evaluate-lorebook"}
 
 // instructionsKey names the run's instructions block.
 func (r *run) instructionsKey() string {

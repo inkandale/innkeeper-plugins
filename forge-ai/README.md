@@ -1,8 +1,8 @@
 # forge-ai
 
 Writes, revises, tightens, expands, evaluates, and scores character cards,
-and adds alternate greetings, example dialogue, and lorebook entries, with a
-language model. It offers the `action`, `records`, `enrich`, and `settings`
+evaluates lorebooks, and adds alternate greetings, example dialogue, and
+lorebook entries, with a language model. It offers the `action`, `records`, `enrich`, and `settings`
 capabilities, and calls `ai.chat` on the `ai` instance its `connection`
 setting names, so it needs a core with those and an `ai` instance that
 offers chat. Scoring can also call `ai.decide` on the instance its
@@ -35,6 +35,7 @@ The actions fall into four groups by what they do.
 | Add | `alternate-greetings` | a card | Adds 1 to 10 alternate greetings, 3 by default, after the existing ones |
 | Add | `lore-entries` | a lorebook | Adds 1 to 20 entries, 5 by default, about what the instruction asks, from the cards it mentions |
 | Judge | `evaluate` | a card | Reports a score, six dimension scores, contradictions, misplaced content, and suggestions |
+| Judge | `evaluate-lorebook` (Evaluate) | a lorebook | Reports a score, five dimension scores (`triggers`, `consistency`, `focus`, `usefulness`, `token_efficiency`), contradictions, problems in entries, and suggestions. Stores no scores |
 
 An edit on the whole card runs in two steps:
 
@@ -54,6 +55,10 @@ entry has no `id`, `enabled` true, `insertion_order` 100, `position`
 dropped when one of its keys is an earlier entry's first key or more than
 half its keys are taken; otherwise it loses only its taken keys. A run that
 adds nothing proposes the lorebook unchanged.
+
+`evaluate-lorebook` sends the same, plus each entry's `secondary_keys` and
+`constant`. Its findings sit under Entries and name the entries they're
+about.
 
 ## Scores
 
