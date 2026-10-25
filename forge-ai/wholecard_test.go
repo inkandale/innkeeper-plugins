@@ -199,6 +199,17 @@ func TestPlanContractListsOnlyTheActionsFields(t *testing.T) {
 	}
 }
 
+// A plan holding each field's new text runs past its token limit and won't parse.
+func TestPlanContractAsksForNotesNotNewText(t *testing.T) {
+	system, _, err := wholeCardRun(t, "revise").planPrompts(settings{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(system, "not the new text") {
+		t.Fatalf("plan system prompt doesn't rule out the new text:\n%s", system)
+	}
+}
+
 func TestWholeCardResultKeepsEveryRawReply(t *testing.T) {
 	_, cfg := withLLM(t,
 		streamed(`{"description": "Cut the repeated height."}`),
