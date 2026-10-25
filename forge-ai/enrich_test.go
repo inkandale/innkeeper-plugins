@@ -120,6 +120,7 @@ func TestEnrichCancelStopsFurtherCalls(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	llm, cfg := withLLM(t, streamed(evaluated), streamed(evaluated))
 	llm.onRequest = cancel // The owner pressed Stop during the first call.
+	cfg["concurrency"] = 1 // A wider batch starts the second card before the first call.
 	h := startPlugin(t, cfg)
 	params, _ := json.Marshal(enrichParams("Brakka", "Mira"))
 	if _, err := h.srv.enrich(ctx, h.in, params); !errors.Is(err, context.Canceled) {
