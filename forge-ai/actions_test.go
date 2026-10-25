@@ -129,6 +129,59 @@ func TestEvaluateLorebookReport(t *testing.T) {
 	}
 }
 
+const threeEntries = `{"name": "Reach", "description": "Cold.", "extensions": {"x": 1}, "entries": [
+	{"id": 1, "keys": ["pass"], "content": "Snowbound.", "insertion_order": 7, "extensions": {"depth": 4}},
+	{"id": 2, "keys": ["gate"], "content": "Iron."},
+	{"id": 3, "keys": ["clans"], "content": "Three clans.", "constant": true}]}`
+
+func reviseLorebook(t *testing.T, output string) map[string]json.RawMessage {
+	t.Helper()
+	p := sampleRun(t, "revise-lorebook")
+	p.Entity.Data = json.RawMessage(threeEntries)
+	var out map[string]json.RawMessage
+	if err := json.Unmarshal(result(t, p, output).Proposal, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func TestReviseLorebookChangesRemovesAndAddsEntries(t *testing.T) {
+	out := reviseLorebook(t, `{"description": "Bitter cold.", "entries": [
+		{"entry": 1, "content": "Snowbound in winter."},
+		{"entry": 3, "constant": false, "keys": ["clans", "clan"]},
+		{"keys": [" chief "], "content": " Leads the clans. "}],
+		"removed": [2]}`)
+	var entries []map[string]any
+	if err := json.Unmarshal(out["entries"], &entries); err != nil {
+		t.Fatal(err)
+	}
+	if string(out["description"]) != `"Bitter cold."` || string(out["extensions"]) != `{"x":1}` || len(entries) != 3 {
+		t.Fatalf("proposal %s", out)
+	}
+	// An edit changes only the properties it names; the rest keep their values.
+	want := []map[string]any{
+		{"id": 1.0, "keys": []any{"pass"}, "content": "Snowbound in winter.", "insertion_order": 7.0, "extensions": map[string]any{"depth": 4.0}},
+		{"id": 3.0, "keys": []any{"clans", "clan"}, "content": "Three clans.", "constant": false},
+		{"keys": []any{"chief"}, "content": "Leads the clans.", "enabled": true, "insertion_order": 100.0, "position": "before_char",
+			"use_regex": false, "extensions": map[string]any{}},
+	}
+	if !reflect.DeepEqual(entries, want) {
+		t.Fatalf("entries %v", entries)
+	}
+}
+
+func TestReviseLorebookKeepsTheDraftWhenNothingChanges(t *testing.T) {
+	out := reviseLorebook(t, `{"name": "Reach", "entries": [{"entry": 2, "content": "Iron."}, {"entry": 9, "content": "No such entry."},
+		{"keys": ["empty"], "content": " "}], "removed": [0, 12]}`)
+	var got, want any
+	b, _ := json.Marshal(out)
+	_ = json.Unmarshal(b, &got)
+	_ = json.Unmarshal([]byte(threeEntries), &want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("proposal %s", out)
+	}
+}
+
 func TestRunInputsChecked(t *testing.T) {
 	bad := map[string]func(*protocol.ActionRunParams){
 		"unknown action":    func(p *protocol.ActionRunParams) { p.Action = "nope" },
@@ -175,12 +228,12 @@ func TestTagsAsCommaSeparatedText(t *testing.T) {
 	}
 }
 
-func TestTheElevenActions(t *testing.T) {
+func TestTheTwelveActions(t *testing.T) {
 	var ids []string
 	for _, a := range actions {
 		ids = append(ids, a.ID)
 	}
-	want := []string{"generate", "revise", "tighten", "expand", "to-prose", "change-pov", "examples", "alternate-greetings", "lore-entries", "evaluate", "evaluate-lorebook"}
+	want := []string{"generate", "revise", "tighten", "expand", "to-prose", "change-pov", "examples", "alternate-greetings", "revise-lorebook", "lore-entries", "evaluate", "evaluate-lorebook"}
 	if !slices.Equal(ids, want) {
 		t.Fatalf("actions %v, want %v", ids, want)
 	}

@@ -193,7 +193,7 @@ var labels = map[string]string{"name": "Name", "description": "Description", "pe
 	"system_prompt": "System prompt", "post_history_instructions": "Post-history instructions",
 	"creator_notes": "Creator notes", "summary": "Summary", "overall_score": "Score", "card_type": "Card type",
 	"dimensions": "Dimensions", "contradictions": "Contradictions", "misplaced_content": "Misplaced content",
-	"problems": "Problems", "suggestions": "Suggestions"}
+	"problems": "Problems", "suggestions": "Suggestions", "entries": "Entries", "removed": "Removed entries"}
 
 // label names a card key in progress messages.
 func label(key string) string {

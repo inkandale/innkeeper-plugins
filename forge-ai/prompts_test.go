@@ -134,6 +134,9 @@ func TestPromptsCarryRunInputs(t *testing.T) {
 	if !strings.Contains(user, `"secondary_keys": [`) || !strings.Contains(user, `"constant": true`) || strings.Contains(user, "insertion_order") {
 		t.Errorf("evaluate-lorebook: the model doesn't see how entries trigger:\n%s", user)
 	}
+	if _, user, _ := render(t, sampleRun(t, "revise-lorebook"), settings{}); !strings.Contains(user, `"entry": 1`) {
+		t.Errorf("revise-lorebook: the model can't name entries by number:\n%s", user)
+	}
 	for pov, want := range map[string]string{"first": "first person", "third": "third person", "scenario": "scenario card"} {
 		p := sampleRun(t, "generate")
 		p.Inputs = json.RawMessage(`{"point_of_view": "` + pov + `"}`)

@@ -1,7 +1,7 @@
 # forge-ai
 
 Writes, revises, tightens, expands, evaluates, and scores character cards,
-evaluates lorebooks, and adds alternate greetings, example dialogue, and
+revises and evaluates lorebooks, and adds alternate greetings, example dialogue, and
 lorebook entries, with a language model. It offers the `action`, `records`, `enrich`, and `settings`
 capabilities, and calls `ai.chat` on the `ai` instance its `connection`
 setting names, so it needs a core with those and an `ai` instance that
@@ -31,6 +31,7 @@ The actions fall into four groups by what they do.
 | Edit | `expand` | a prose field or the whole card | Adds concrete detail without changing what's there |
 | Edit | `to-prose` | a prose field or the whole card | Turns lists and bracket formats into paragraphs |
 | Edit | `change-pov` | a prose field or the whole card | Rewrites it in first or third person. Skips `creator_notes` |
+| Edit | `revise-lorebook` (Revise) | a lorebook | Changes, adds, and removes entries, and changes the name or description, as the instruction says |
 | Add | `examples` (Write examples) | `mes_example` | Replaces the example dialogue with 1 to 10 new exchanges, 3 by default |
 | Add | `alternate-greetings` | a card | Adds 1 to 10 alternate greetings, 3 by default, after the existing ones |
 | Add | `lore-entries` | a lorebook | Adds 1 to 20 entries, 5 by default, about what the instruction asks, from the cards it mentions |
@@ -56,9 +57,17 @@ dropped when one of its keys is an earlier entry's first key or more than
 half its keys are taken; otherwise it loses only its taken keys. A run that
 adds nothing proposes the lorebook unchanged.
 
-`evaluate-lorebook` sends the same, plus each entry's `secondary_keys` and
-`constant`. Its findings sit under Entries and name the entries they're
-about.
+`revise-lorebook` and `evaluate-lorebook` send the same, plus each entry's
+number, `secondary_keys`, and `constant`. `evaluate-lorebook`'s findings sit
+under Entries and name the entries they're about.
+
+`revise-lorebook` comes before `lore-entries`, so the core's Reforge box
+and a report's Refine run it. The model returns only what changes. A
+changed entry keeps every property the model didn't set, so `id`,
+`insertion_order`, and `extensions` survive. New entries get the same
+defaults as `lore-entries` and need keys and content. An unknown entry
+number is ignored, and a run that changes nothing proposes the lorebook
+unchanged.
 
 ## Scores
 
@@ -143,7 +152,7 @@ The Prompts tab shows each block as its default.
 
 ## Library access
 
-`generate`, `revise`, `alternate-greetings`, and `lore-entries` may read the
+`generate`, `revise`, `alternate-greetings`, `revise-lorebook`, and `lore-entries` may read the
 library through `library.call` when the owner turns on Library access for
 the instance. A whole-card run's plan call offers no tools; each field's
 call does. If the `ai` instance rejects the request with tools, the run

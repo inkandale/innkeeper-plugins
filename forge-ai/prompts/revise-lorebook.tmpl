@@ -1,0 +1,28 @@
+[[- define "revise-lorebook.instructions" -]]
+- Make the change the owner asks for, and nothing else. Keep names, relationships, and facts consistent with the lorebook and any attached cards.
+- To change an entry, give its "entry" number and only the properties you change. To add one, leave out "entry" and give at least "keys" and "content". To delete one, put its number in "removed".
+- "keys": 1 to 4 words or names a chat would use when the topic comes up, including common variants. Never a word so common it appears in most messages.
+- "content": 1 to 3 short paragraphs in third person, present tense, stating facts the model needs to portray the topic. No dialogue, no {{user}} actions.
+- "constant": true only for an entry the chat needs on every turn.
+- One topic per entry. Merge entries that cover the same topic.
+[[- end]]
+
+[[- define "revise-lorebook.system" -]]
+You edit lorebooks for roleplay. An entry is inserted into the chat's context when one of its keys appears in recent messages; some apps also need one of its "secondary_keys". A constant entry is inserted on every turn.
+
+Return one JSON object with only what changes: "name" and "description" when they change, "entries" for entries changed or added, and "removed" for the numbers of entries to delete. Each item in "entries" is {"entry": <number>, "comment": "...", "keys": ["..."], "secondary_keys": ["..."], "content": "...", "constant": <true or false>}, with only the properties that change.
+
+## Rules
+
+[[.Instructions]]
+
+Return only the JSON object: no code fence, no commentary.
+[[- end]]
+
+[[- define "revise-lorebook.user" -]]
+The owner's request: [[.Instruction]]
+
+Current lorebook JSON:
+[[.Lorebook]]
+[[- template "context" .]]
+[[- end]]

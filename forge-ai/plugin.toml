@@ -1,9 +1,9 @@
 name = "forge-ai"
-version = "0.10.0"
+version = "0.11.0"
 protocol = 1
 command = ["./forge-ai"]
 capabilities = ["action", "records", "enrich", "settings"]
-description = "Write, revise, tighten, expand, and evaluate cards, evaluate lorebooks, write examples, alternate greetings, and lore entries, and score cards in bulk for the library grid, through an ai instance. Each action's instructions can be overridden on the Prompts tab. Keeps Agent Skills the model can load. Needs a core with the ai, action, records, enrich, and settings capabilities, and an ai instance offering chat."
+description = "Write, revise, tighten, expand, and evaluate cards, revise and evaluate lorebooks, write examples, alternate greetings, and lore entries, and score cards in bulk for the library grid, through an ai instance. Each action's instructions can be overridden on the Prompts tab. Keeps Agent Skills the model can load. Needs a core with the ai, action, records, enrich, and settings capabilities, and an ai instance offering chat."
 category = "AI"
 uses = ["ai.chat", "ai.decide"]
 database = true
@@ -70,6 +70,7 @@ to-prose = { type = "string", title = "Convert to prose", contentMediaType = "te
 change-pov = { type = "string", title = "Change point of view", contentMediaType = "text/plain" }
 examples = { type = "string", title = "Write examples", contentMediaType = "text/plain" }
 alternate-greetings = { type = "string", title = "Write alternate greetings", contentMediaType = "text/plain" }
+revise-lorebook = { type = "string", title = "Revise a lorebook", contentMediaType = "text/plain" }
 lore-entries = { type = "string", title = "Write lore entries", contentMediaType = "text/plain" }
 evaluate = { type = "string", title = "Evaluate", contentMediaType = "text/plain" }
 evaluate-lorebook = { type = "string", title = "Evaluate a lorebook", contentMediaType = "text/plain" }

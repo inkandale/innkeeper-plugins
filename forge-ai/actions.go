@@ -35,38 +35,43 @@ type action struct {
 	appends *appender
 	// evaluates is set for a report-only action.
 	evaluates *evaluator
+	// edits is set for an action that changes a lorebook's entries in place.
+	edits *editor
 }
 
 const povSchema = `{"type": "object", "properties": {"point_of_view": {"type": "string", "title": "Point of view", "enum": [%s]}}%s}`
 
 var actions = []action{
-	{protocol.Action{ID: "generate", Label: "Forge", Description: "Write a new card from a concept.",
+	{Action: protocol.Action{ID: "generate", Label: "Forge", Description: "Write a new card from a concept.",
 		Applies: protocol.ApplyNew, Instruction: true, Library: true, Images: true,
-		Inputs: json.RawMessage(fmt.Sprintf(povSchema, `"first", "third", "scenario"`, ""))}, 0.8, 8192, nil, nil},
-	{protocol.Action{ID: "revise", Label: "Revise", Description: "Change it as you describe.",
-		Applies: protocol.ApplyCard, Fields: cardKeys, WholeCard: true, Instruction: true, Library: true}, 0.7, 4096, nil, nil},
-	{protocol.Action{ID: "tighten", Label: "Tighten", Description: "Cut filler and repetition; keep every fact.",
-		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, 0.5, 4096, nil, nil},
-	{protocol.Action{ID: "expand", Label: "Expand", Description: "Add concrete detail without changing what's there.",
-		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, 0.8, 4096, nil, nil},
-	{protocol.Action{ID: "to-prose", Label: "Convert to prose", Description: "Turn lists and bracket formats into paragraphs.",
-		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, 0.5, 4096, nil, nil},
-	{protocol.Action{ID: "change-pov", Label: "Change point of view", Description: "Switch between first and third person.",
+		Inputs: json.RawMessage(fmt.Sprintf(povSchema, `"first", "third", "scenario"`, ""))}, temperature: 0.8, maxTokens: 8192},
+	{Action: protocol.Action{ID: "revise", Label: "Revise", Description: "Change it as you describe.",
+		Applies: protocol.ApplyCard, Fields: cardKeys, WholeCard: true, Instruction: true, Library: true}, temperature: 0.7, maxTokens: 4096},
+	{Action: protocol.Action{ID: "tighten", Label: "Tighten", Description: "Cut filler and repetition; keep every fact.",
+		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, temperature: 0.5, maxTokens: 4096},
+	{Action: protocol.Action{ID: "expand", Label: "Expand", Description: "Add concrete detail without changing what's there.",
+		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, temperature: 0.8, maxTokens: 4096},
+	{Action: protocol.Action{ID: "to-prose", Label: "Convert to prose", Description: "Turn lists and bracket formats into paragraphs.",
+		Applies: protocol.ApplyCard, Fields: textFields, WholeCard: true}, temperature: 0.5, maxTokens: 4096},
+	{Action: protocol.Action{ID: "change-pov", Label: "Change point of view", Description: "Switch between first and third person.",
 		Applies: protocol.ApplyCard, Fields: povFields, WholeCard: true,
-		Inputs: json.RawMessage(fmt.Sprintf(povSchema, `"first", "third"`, `, "required": ["point_of_view"]`))}, 0.6, 4096, nil, nil},
-	{protocol.Action{ID: "examples", Label: "Write examples", Description: "Replace the example dialogue with new exchanges.",
+		Inputs: json.RawMessage(fmt.Sprintf(povSchema, `"first", "third"`, `, "required": ["point_of_view"]`))}, temperature: 0.6, maxTokens: 4096},
+	{Action: protocol.Action{ID: "examples", Label: "Write examples", Description: "Replace the example dialogue with new exchanges.",
 		Applies: protocol.ApplyCard, Fields: []string{"mes_example"},
-		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Examples", "minimum": 1, "maximum": 10, "default": 3}}}`)}, 0.8, 4096, nil, nil},
-	{protocol.Action{ID: "alternate-greetings", Label: "Write alternate greetings", Description: "Add new opening messages to the card.",
+		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Examples", "minimum": 1, "maximum": 10, "default": 3}}}`)}, temperature: 0.8, maxTokens: 4096},
+	{Action: protocol.Action{ID: "alternate-greetings", Label: "Write alternate greetings", Description: "Add new opening messages to the card.",
 		Applies: protocol.ApplyCard, Library: true,
-		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Greetings", "minimum": 1, "maximum": 10, "default": 3}}}`)}, 0.9, 8192, greetingsAppender, nil},
-	{protocol.Action{ID: "lore-entries", Label: "Write lore entries", Description: "Add entries about what you describe, from the cards you mention.",
+		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Greetings", "minimum": 1, "maximum": 10, "default": 3}}}`)}, temperature: 0.9, maxTokens: 8192, appends: greetingsAppender},
+	// revise-lorebook comes before lore-entries so the core's Reforge box and Refine run it.
+	{Action: protocol.Action{ID: "revise-lorebook", Label: "Revise", Description: "Change it as you describe.",
+		Applies: protocol.ApplyLorebook, Instruction: true, Library: true}, temperature: 0.7, maxTokens: 8192, edits: lorebookEditor},
+	{Action: protocol.Action{ID: "lore-entries", Label: "Write lore entries", Description: "Add entries about what you describe, from the cards you mention.",
 		Applies: protocol.ApplyLorebook, Instruction: true, Library: true,
-		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Entries", "minimum": 1, "maximum": 20, "default": 5}}}`)}, 0.7, 8192, entriesAppender, nil},
-	{protocol.Action{ID: "evaluate", Label: "Evaluate", Description: "Score the card on six dimensions and list its problems.",
-		Applies: protocol.ApplyCard, ReportOnly: true}, 0, 4096, nil, cardEvaluator},
-	{protocol.Action{ID: "evaluate-lorebook", Label: "Evaluate", Description: "Score the lorebook on five dimensions and list its problems.",
-		Applies: protocol.ApplyLorebook, ReportOnly: true}, 0, 8192, nil, lorebookEvaluator},
+		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Entries", "minimum": 1, "maximum": 20, "default": 5}}}`)}, temperature: 0.7, maxTokens: 8192, appends: entriesAppender},
+	{Action: protocol.Action{ID: "evaluate", Label: "Evaluate", Description: "Score the card on six dimensions and list its problems.",
+		Applies: protocol.ApplyCard, ReportOnly: true}, temperature: 0, maxTokens: 4096, evaluates: cardEvaluator},
+	{Action: protocol.Action{ID: "evaluate-lorebook", Label: "Evaluate", Description: "Score the lorebook on five dimensions and list its problems.",
+		Applies: protocol.ApplyLorebook, ReportOnly: true}, temperature: 0, maxTokens: 8192, evaluates: lorebookEvaluator},
 }
 
 // limits are the temperature and max tokens a's runs send: the instance's
@@ -166,6 +171,8 @@ func (r *run) writes() []string {
 		return []string{r.appends.key}
 	case r.evaluates != nil:
 		return r.evaluates.keys
+	case r.edits != nil:
+		return r.edits.keys
 	case len(r.Fields) > 0:
 		return []string{r.Field}
 	case r.pointOfView == "scenario":
@@ -229,6 +236,8 @@ func (r *run) result(output string) (protocol.ActionRunResult, error) {
 		res.Report, err = r.evaluates.report(obj)
 	case r.appends != nil:
 		res.Proposal, err = r.appends.merge(r, obj[r.appends.key])
+	case r.edits != nil:
+		res.Proposal, err = r.edits.merge(r, obj)
 	default:
 		res.Proposal, err = r.proposal(obj)
 	}
