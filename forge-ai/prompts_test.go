@@ -134,6 +134,10 @@ func TestPromptsCarryRunInputs(t *testing.T) {
 	if !strings.Contains(user, `"secondary_keys": [`) || !strings.Contains(user, `"constant": true`) || strings.Contains(user, "insertion_order") {
 		t.Errorf("evaluate-lorebook: the model doesn't see how entries trigger:\n%s", user)
 	}
+	// Refine runs revise-lorebook on the ticked fixes, and that can't edit a card.
+	if system, _, _ := render(t, p, settings{}); !strings.Contains(system, "Every fix is a change to this lorebook") {
+		t.Errorf("evaluate-lorebook: fixes may ask for card changes:\n%s", system)
+	}
 	if _, user, _ := render(t, sampleRun(t, "revise-lorebook"), settings{}); !strings.Contains(user, `"entry": 1`) {
 		t.Errorf("revise-lorebook: the model can't name entries by number:\n%s", user)
 	}
