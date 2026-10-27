@@ -1,6 +1,6 @@
 name = "ai"
 title = "AI"
-version = "0.2.5"
+version = "0.2.6"
 protocol = 1
 command = ["./ai"]
 capabilities = ["ai", "settings"]
@@ -46,6 +46,7 @@ description = "The API's URL, such as https://openrouter.ai/api/v1. Required for
 type = "string"
 title = "Model"
 x-options = true
+x-options-needs = { provider = {}, base_url = { provider = ["openai-compatible"] } }
 description = "Load choices lists the provider's models. Anthropic doesn't list them, so type the name."
 
 [config.properties.kinds]

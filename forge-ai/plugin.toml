@@ -1,6 +1,6 @@
 name = "forge-ai"
 title = "Forge"
-version = "0.11.6"
+version = "0.11.7"
 protocol = 1
 command = ["./forge-ai"]
 capabilities = ["action", "records", "enrich", "settings"]
@@ -28,6 +28,7 @@ x-offers = "ai.decide"
 description = "Optional: an AI connection with quick scoring turned on. Bulk scoring tries it first for first impression, voice, roleplayability, and quality, and sends the cards it isn't sure of to the AI connection. Rescore on a card's page always uses the AI connection."
 
 [config.properties.concurrency]
+x-advanced = true
 type = "integer"
 title = "Cards scored at once"
 minimum = 1
@@ -36,6 +37,7 @@ default = 4
 description = "How many cards one scoring batch sends to the model at the same time. Raise it for a hosted model; lower it for a local one that runs one request at a time."
 
 [config.properties.escalate_below]
+x-advanced = true
 type = "number"
 title = "Rescore below confidence"
 minimum = 0
@@ -44,11 +46,13 @@ default = 0.25
 description = "When the decision connection is less sure of a card than this, from 0 to 1, the AI connection scores it instead. 0 trusts every quick score; 1 rescores every card."
 
 [config.properties.temperature]
+x-advanced = true
 type = "number"
 title = "Temperature"
 description = "Leave empty to use each action's own."
 
 [config.properties.max_tokens]
+x-advanced = true
 type = "integer"
 title = "Max tokens"
 description = "Leave empty to use each action's own: 8192 for Forge, alternate greetings, and lore entries, 4096 for the rest."
