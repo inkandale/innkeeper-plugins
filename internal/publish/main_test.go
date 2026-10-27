@@ -67,6 +67,23 @@ func TestPublish(t *testing.T) {
 	}
 }
 
+func TestPublishKeepsUses(t *testing.T) {
+	out := t.TempDir()
+	tag, err := publish("../..", out, "https://example.com/dl", "forge-ai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var index struct {
+		Plugin []entry `toml:"plugin"`
+	}
+	if _, err := toml.DecodeFile(filepath.Join(out, tag, "entry.toml"), &index); err != nil {
+		t.Fatal(err)
+	}
+	if got := index.Plugin[0].Uses; !slices.Equal(got, []string{"ai.chat", "ai.decide"}) {
+		t.Fatalf("uses = %v; want forge-ai's", got)
+	}
+}
+
 func TestCategorize(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "index.toml")
 	published := `[[plugin]]

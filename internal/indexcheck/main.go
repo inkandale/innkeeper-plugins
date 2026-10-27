@@ -24,6 +24,7 @@ type entry struct {
 	Protocol     int      `toml:"protocol"`
 	Capabilities []string `toml:"capabilities"`
 	Description  string   `toml:"description"`
+	Uses         []string `toml:"uses"`
 }
 
 func main() {
@@ -73,7 +74,10 @@ func check(root string) []error {
 			errs = append(errs, fmt.Errorf("%s: index title %q, description %q, category %q; plugin.toml has %q, %q, %q",
 				e.Path, e.Title, e.Description, e.Category, m.Title, m.Description, m.Category))
 		}
-		if !slices.Equal(m.Command, []string{"./" + e.Path}) {
+		if !slices.Equal(e.Uses, m.Uses) {
+			errs = append(errs, fmt.Errorf("%s: index uses %v; plugin.toml has %v", e.Path, e.Uses, m.Uses))
+		}
+		if !slices.Equal(m.Command,[]string{"./" + e.Path}) {
 			errs = append(errs, fmt.Errorf("%s: command must be [\"./%s\"], where make build writes the binary", e.Path, e.Path))
 		}
 		if e.Description == "" {

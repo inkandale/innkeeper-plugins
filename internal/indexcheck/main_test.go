@@ -78,6 +78,7 @@ func TestCheckRejectsMismatchedDescriptionCategoryAndTitle(t *testing.T) {
 		"title":       "title = \"A\"\ndescription = \"Same.\"\ncategory = \"Apps\"\n",
 		"description": "description = \"Other.\"\ncategory = \"Apps\"\n",
 		"category":    "description = \"Same.\"\ncategory = \"Import\"\n",
+		"uses":        "description = \"Same.\"\ncategory = \"Apps\"\nuses = [\"ai.chat\"]\n",
 	} {
 		t.Run(field, func(t *testing.T) {
 			root := t.TempDir()

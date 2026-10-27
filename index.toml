@@ -95,6 +95,7 @@ path = "forge-ai"
 version = "0.11.4"
 protocol = 1
 capabilities = ["action", "records", "enrich", "settings"]
+uses = ["ai.chat", "ai.decide"]
 description = "An AI co-writer: drafts new cards, rewrites and tightens fields, adds greetings, examples, and lore, and rates cards. Needs the AI plugin set up with a chat model."
 
 [[plugin]]

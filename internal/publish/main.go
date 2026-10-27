@@ -51,6 +51,7 @@ type entry struct {
 	Protocol     int        `toml:"protocol"`
 	Capabilities []string   `toml:"capabilities"`
 	Description  string     `toml:"description"`
+	Uses         []string   `toml:"uses,omitempty"`
 	Artifact     []artifact `toml:"artifact,omitempty"`
 }
 
