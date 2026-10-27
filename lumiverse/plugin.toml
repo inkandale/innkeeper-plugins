@@ -1,11 +1,11 @@
 name = "lumiverse"
 title = "Lumiverse"
-version = "0.3.2"
+version = "0.3.3"
 protocol = 1
 command = ["./lumiverse"]
 capabilities = ["push", "pull"]
 multiple_instances = true
-description = "Push cards and lorebooks to a Lumiverse server as characters and world books, and read them back."
+description = "For Lumiverse users: keeps your Lumiverse characters and world books in step with your library, both ways. Needs your Lumiverse address and login."
 category = "Apps"
 icon = "icon.svg"
 secrets = ["password"]

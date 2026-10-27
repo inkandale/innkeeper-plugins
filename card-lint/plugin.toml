@@ -1,12 +1,12 @@
 name = "card-lint"
 title = "Card lint"
-version = "0.4.1"
+version = "0.4.2"
 protocol = 1
 command = ["./card-lint"]
 capabilities = ["enrich"]
 # Lint makes no model calls, so one run can cover a whole archive.
 enrich_max_cards = 1000000
-description = "Score cards with fast checks that need no model: missing fields, size, repeated text, leftover placeholders, markup, and garbled text, and detect each card's language. Use it to filter an archive before a model-based evaluation: problems and language show in the library sidebar with counts."
+description = "Free, instant checks on every card, no AI needed: missing fields, too short or too long, repeated text, leftover placeholders, garbled text, and language. Try it before AI scoring on a big library."
 category = "Quality"
 
 [config]

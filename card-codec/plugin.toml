@@ -1,9 +1,9 @@
 name = "card-codec"
 title = "Card codec"
-version = "0.3.1"
+version = "0.3.2"
 protocol = 1
 command = ["./card-codec"]
 capabilities = ["codec"]
-description = "Read and write character cards: CCv3, V2, and V1, as PNG and JSON. Also reads CharX."
+description = "Reads and writes character card files: PNG and JSON in every common card format, and CharX. Innkeeper needs it to import or export any card."
 category = "Formats"
 formats = ["png", "json-v2"]

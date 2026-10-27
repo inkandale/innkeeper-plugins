@@ -2,27 +2,27 @@
 # "Plugin repository".
 
 # The setup wizard shows these categories first, in this order.
-categories = ["Apps", "Import", "Login"]
+categories = ["Apps", "Import", "AI", "Quality", "Login", "Advanced"]
 
 [[plugin]]
 name = "card-codec"
 title = "Card codec"
 category = "Formats"
 path = "card-codec"
-version = "0.3.1"
+version = "0.3.2"
 protocol = 1
 capabilities = ["codec"]
-description = "Read and write character cards: CCv3, V2, and V1, as PNG and JSON. Also reads CharX."
+description = "Reads and writes character card files: PNG and JSON in every common card format, and CharX. Innkeeper needs it to import or export any card."
 
 [[plugin]]
 name = "password-login"
 title = "Password login"
 category = "Login"
 path = "password-login"
-version = "0.2.2"
+version = "0.2.3"
 protocol = 1
 capabilities = ["auth"]
-description = "Log in as the owner with one password."
+description = "Sign in to Innkeeper with a password. You set it when you claim the server."
 
 [[plugin]]
 name = "card-import"
@@ -30,10 +30,10 @@ title = "Card import"
 category = "Import"
 recommended = true
 path = "card-import"
-version = "0.3.1"
+version = "0.3.2"
 protocol = 1
 capabilities = ["import"]
-description = "Import character cards and lorebooks from a folder or an uploaded file."
+description = "Bring in card and lorebook files you already have: upload them, or import a whole folder on the server."
 
 [[plugin]]
 name = "lumiverse"
@@ -41,10 +41,10 @@ title = "Lumiverse"
 category = "Apps"
 recommended = true
 path = "lumiverse"
-version = "0.3.2"
+version = "0.3.3"
 protocol = 1
 capabilities = ["push", "pull"]
-description = "Push cards and lorebooks to a Lumiverse server as characters and world books, and read them back."
+description = "For Lumiverse users: keeps your Lumiverse characters and world books in step with your library, both ways. Needs your Lumiverse address and login."
 
 [[plugin]]
 name = "sillytavern"
@@ -52,77 +52,77 @@ title = "SillyTavern"
 category = "Apps"
 recommended = true
 path = "sillytavern"
-version = "0.3.2"
+version = "0.3.3"
 protocol = 1
 capabilities = ["push", "pull"]
-description = "Push cards and lorebooks to a SillyTavern server as characters and world info files, and read them back."
+description = "For SillyTavern users: keeps your SillyTavern characters and world info in step with your library, both ways. Needs your SillyTavern address, with Innkeeper allowed by its whitelist."
 
 [[plugin]]
 name = "chub-archive"
 title = "Chub archive"
-category = "Import"
+category = "Advanced"
 path = "chub-archive"
-version = "0.3.3"
+version = "0.3.4"
 protocol = 1
 capabilities = ["import"]
-description = "Import the chub.ai archive's SQL dump into a library, one card per item with every version."
+description = "For the full chub.ai archive download: loads every card in it, with each version, into a library. Needs the archive extracted and mounted on the server."
 
 [[plugin]]
 name = "url-import"
 title = "URL import"
 category = "Import"
 path = "url-import"
-version = "0.3.3"
+version = "0.3.4"
 protocol = 1
 capabilities = ["import", "sites", "pull"]
-description = "Import a card or lorebook from its page URL on chub.ai, RisuRealm, or Character Tavern, link library items to their pages there, and check those pages for the author's changes."
+description = "Add a card or lorebook by pasting its link from chub.ai, RisuRealm, or Character Tavern, and see when its author updates it."
 
 [[plugin]]
 name = "illarin"
 title = "Illarin"
 category = "Import"
 path = "illarin"
-version = "0.1.1"
+version = "0.1.2"
 protocol = 1
 capabilities = ["import"]
-description = "Import cards and lorebooks from Illarin as a connected app: a work's page URL, or every work sent to Innkeeper from Illarin. The first import shows a code to approve on Illarin."
+description = "Add cards and lorebooks from illarin.com: paste a work's link, or import every work you send to Innkeeper there. The first import gives you a code to approve on Illarin."
 
 [[plugin]]
 name = "forge-ai"
 title = "Forge"
 category = "AI"
 path = "forge-ai"
-version = "0.11.3"
+version = "0.11.4"
 protocol = 1
 capabilities = ["action", "records", "enrich", "settings"]
-description = "Write, revise, tighten, expand, and evaluate cards, revise and evaluate lorebooks, write examples, alternate greetings, and lore entries, and score cards in bulk for the library grid, through an ai instance. Each action's instructions can be overridden on the Prompts tab. Keeps Agent Skills the model can load. Needs an AI connection that offers chat."
+description = "An AI co-writer: drafts new cards, rewrites and tightens fields, adds greetings, examples, and lore, and rates cards. Needs the AI plugin set up with a chat model."
 
 [[plugin]]
 name = "ai"
 title = "AI"
 category = "AI"
 path = "ai"
-version = "0.2.2"
+version = "0.2.3"
 protocol = 1
 capabilities = ["ai", "settings"]
-description = "Connect a language model for other plugins to use: chat and embeddings from OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Ollama, llama.cpp, or any OpenAI-compatible server, and decisions from a /v1/systemone decision model or a chat model. One instance per connection."
+description = "Connects Innkeeper to an AI model, hosted (OpenAI, Anthropic, Gemini, and others, with an API key) or local (Ollama, LM Studio, llama.cpp). Forge and search by meaning use it; it does nothing on its own."
 
 [[plugin]]
 name = "card-lint"
 title = "Card lint"
 category = "Quality"
 path = "card-lint"
-version = "0.4.1"
+version = "0.4.2"
 protocol = 1
 capabilities = ["enrich"]
-description = "Score cards with fast checks that need no model: missing fields, size, repeated text, leftover placeholders, markup, and garbled text, and detect each card's language. Use it to filter an archive before a model-based evaluation: problems and language show in the library sidebar with counts."
+description = "Free, instant checks on every card, no AI needed: missing fields, too short or too long, repeated text, leftover placeholders, garbled text, and language. Try it before AI scoring on a big library."
 
 [[plugin]]
 name = "crucible"
 title = "Crucible"
-category = "Quality"
+category = "Advanced"
 path = "crucible"
-version = "0.2.1"
+version = "0.2.2"
 protocol = 1
 capabilities = ["enrich"]
-description = "Score cards with crucible, a small model that reads a card once: quality and its six dimensions, rating, card type, point of view, format, content flags, contradictions between fields, and suggestions. Calls a crucible service at the URL you set."
+description = "Rates cards with a crucible scoring service you run yourself: quality, rating, card type, content flags, and suggestions. Only useful if you have a crucible server."

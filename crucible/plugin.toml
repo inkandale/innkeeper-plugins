@@ -1,13 +1,13 @@
 name = "crucible"
 title = "Crucible"
-version = "0.2.1"
+version = "0.2.2"
 protocol = 1
 command = ["./crucible"]
 capabilities = ["enrich"]
 # Each card is one quick HTTP lookup, so one run can cover a whole archive.
 enrich_max_cards = 1000000
-description = "Score cards with crucible, a small model that reads a card once: quality and its six dimensions, rating, card type, point of view, format, content flags, contradictions between fields, and suggestions. Calls a crucible service at the URL you set."
-category = "Quality"
+description = "Rates cards with a crucible scoring service you run yourself: quality, rating, card type, content flags, and suggestions. Only useful if you have a crucible server."
+category = "Advanced"
 
 [config]
 type = "object"

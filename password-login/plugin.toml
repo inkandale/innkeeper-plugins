@@ -1,9 +1,9 @@
 name = "password-login"
 title = "Password login"
-version = "0.2.2"
+version = "0.2.3"
 protocol = 1
 command = ["./password-login"]
 capabilities = ["auth"]
-description = "Log in as the owner with one password."
+description = "Sign in to Innkeeper with a password. You set it when you claim the server."
 category = "Login"
 secrets = ["password_hash"]

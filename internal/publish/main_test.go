@@ -101,7 +101,7 @@ version = "0.1.0"
 	if index.Plugin[0].Recommended || !index.Plugin[1].Recommended {
 		t.Fatalf("recommended: %+v", index.Plugin)
 	}
-	if !slices.Equal(index.Categories, []string{"Apps", "Import", "Login"}) {
+	if !slices.Equal(index.Categories, []string{"Apps", "Import", "AI", "Quality", "Login", "Advanced"}) {
 		t.Fatalf("categories = %v", index.Categories)
 	}
 }

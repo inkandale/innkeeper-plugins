@@ -1,11 +1,11 @@
 name = "sillytavern"
 title = "SillyTavern"
-version = "0.3.2"
+version = "0.3.3"
 protocol = 1
 command = ["./sillytavern"]
 capabilities = ["push", "pull"]
 multiple_instances = true
-description = "Push cards and lorebooks to a SillyTavern server as characters and world info files, and read them back."
+description = "For SillyTavern users: keeps your SillyTavern characters and world info in step with your library, both ways. Needs your SillyTavern address, with Innkeeper allowed by its whitelist."
 category = "Apps"
 icon = "icon.svg"
 secrets = ["password"]
