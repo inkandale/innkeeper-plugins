@@ -23,8 +23,8 @@ Behind a proxy that sets `X-Forwarded-For`, that address must be in
 
 ## Auth modes
 
-Set `auth` to match the server. `username` is required unless `auth` is
-`none`.
+Set `auth` to match the server; left out, it is `none`. `username` is
+required unless `auth` is `none`.
 
 | `auth` | Server setting |
 | --- | --- |

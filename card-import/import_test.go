@@ -226,3 +226,20 @@ func TestImportFolderSkipsUnreadableSubfolder(t *testing.T) {
 		t.Fatalf("emitted %q, %v; want %q", rec.items(), err, want)
 	}
 }
+
+// The form defaults the folder to /import and leaves a default out of the
+// config; emptying the field means uploads only.
+func TestConfigFolder(t *testing.T) {
+	for _, tt := range []struct {
+		config map[string]any
+		want   string
+	}{
+		{map[string]any{}, "/import"},
+		{map[string]any{"folder": ""}, ""},
+		{map[string]any{"folder": "/cards"}, "/cards"},
+	} {
+		if got := configFolder(tt.config); got != tt.want {
+			t.Errorf("configFolder(%v) = %q, want %q", tt.config, got, tt.want)
+		}
+	}
+}

@@ -4,7 +4,10 @@ Imports CCv3, V2, and V1 cards as PNG or JSON, Pygmalion and Roko's Basilisk
 JSON cards, CharX cards, and lorebooks as CCv3
 `character_book` JSON or SillyTavern world info.
 
-Set `config.folder` to the folder imports may read. Import params are one of:
+`config.folder` is the folder imports may read: `/import` when left out,
+where Innkeeper's Compose stack mounts `./import`, and none when empty, for
+uploads only. The setup wizard's **Import folder** starts a `{}` import.
+Import params are one of:
 
 | Params | Imports |
 |---|---|

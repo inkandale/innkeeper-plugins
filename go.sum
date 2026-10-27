@@ -56,10 +56,8 @@ github.com/googleapis/gax-go/v2 v2.17.0 h1:RksgfBpxqff0EZkDWYuz9q/uWsTVz+kf43LsZ
 github.com/googleapis/gax-go/v2 v2.17.0/go.mod h1:mzaqghpQp4JDh3HvADwrat+6M3MOIDp5YKHhb9PAgDY=
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/inkandale/innkeeper v0.0.0-20261024152133-bfdcb80677b9 h1:0bA9R1EPE8Xd7J8YYZJRj756tJDJckNebSddgtKVklw=
-github.com/inkandale/innkeeper v0.0.0-20261024152133-bfdcb80677b9/go.mod h1:EjbfCeFBLQZtfyYSYqlmM1y/zq5x3oU4LNvIEQ/eql0=
-github.com/inkandale/innkeeper v0.0.0-20261024164406-a6d4731b2011 h1:Ip2xYBv7mvW0yH9mpdMBwToV/iTHVl86DTBDwdWQpwE=
-github.com/inkandale/innkeeper v0.0.0-20261024164406-a6d4731b2011/go.mod h1:EjbfCeFBLQZtfyYSYqlmM1y/zq5x3oU4LNvIEQ/eql0=
+github.com/inkandale/innkeeper v0.0.0-20261027005334-3652bdaef237 h1:LwEvxiHMB0atZSdgyqFxXxoEZ7ET/veXnQ0JpeOdyqc=
+github.com/inkandale/innkeeper v0.0.0-20261027005334-3652bdaef237/go.mod h1:EjbfCeFBLQZtfyYSYqlmM1y/zq5x3oU4LNvIEQ/eql0=
 github.com/invopop/jsonschema v0.14.0 h1:MHQqLhvpNUZfw+hM3AZDYK7jxO8FZoQeQM77g8iyZjg=
 github.com/invopop/jsonschema v0.14.0/go.mod h1:ygm6C2EaVNMBDPpaPlnOA2pFAxBnxGjFlMZABxm9n2I=
 github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=

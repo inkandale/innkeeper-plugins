@@ -16,6 +16,7 @@ import (
 
 type entry struct {
 	Name         string   `toml:"name"`
+	Title        string   `toml:"title"`
 	Path         string   `toml:"path"`
 	Category     string   `toml:"category"`
 	Recommended  bool     `toml:"recommended"`
@@ -68,9 +69,9 @@ func check(root string) []error {
 			errs = append(errs, fmt.Errorf("%s: index entry (name %q, version %q, protocol %d, capabilities %v) doesn't match plugin.toml (%q, %q, %d, %v)",
 				e.Path, e.Name, e.Version, e.Protocol, e.Capabilities, m.Name, m.Version, m.Protocol, m.Capabilities))
 		}
-		if e.Description != m.Description || e.Category != m.Category {
-			errs = append(errs, fmt.Errorf("%s: index description %q, category %q; plugin.toml has %q, %q",
-				e.Path, e.Description, e.Category, m.Description, m.Category))
+		if e.Title != m.Title || e.Description != m.Description || e.Category != m.Category {
+			errs = append(errs, fmt.Errorf("%s: index title %q, description %q, category %q; plugin.toml has %q, %q, %q",
+				e.Path, e.Title, e.Description, e.Category, m.Title, m.Description, m.Category))
 		}
 		if !slices.Equal(m.Command, []string{"./" + e.Path}) {
 			errs = append(errs, fmt.Errorf("%s: command must be [\"./%s\"], where make build writes the binary", e.Path, e.Path))

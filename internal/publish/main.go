@@ -42,6 +42,7 @@ type artifact struct {
 // plugin sources read.
 type entry struct {
 	Name         string     `toml:"name"`
+	Title        string     `toml:"title,omitempty"`
 	Path         string     `toml:"path,omitempty"`
 	Category     string     `toml:"category,omitempty"`
 	Recommended  bool       `toml:"recommended,omitempty"`
@@ -129,7 +130,7 @@ func publish(root, out, base, folder string) (string, error) {
 }
 
 // categorize sets the published index at path's category order, and each
-// plugin's category and recommended mark, from index.toml. They belong to the
+// plugin's title, category, and recommended mark, from index.toml. They belong to the
 // plugin, not a version, and a release's entry.toml is never rebuilt.
 func categorize(root, path string) error {
 	var repo, published struct {
@@ -149,6 +150,7 @@ func categorize(root, path string) error {
 	}
 	for i, e := range published.Plugin {
 		if r, ok := byName[e.Name]; ok {
+			published.Plugin[i].Title = r.Title
 			published.Plugin[i].Category = r.Category
 			published.Plugin[i].Recommended = r.Recommended
 		}

@@ -73,8 +73,9 @@ func TestCheckRejectsRepoRootPath(t *testing.T) {
 	}
 }
 
-func TestCheckRejectsMismatchedDescriptionAndCategory(t *testing.T) {
+func TestCheckRejectsMismatchedDescriptionCategoryAndTitle(t *testing.T) {
 	for field, manifestExtra := range map[string]string{
+		"title":       "title = \"A\"\ndescription = \"Same.\"\ncategory = \"Apps\"\n",
 		"description": "description = \"Other.\"\ncategory = \"Apps\"\n",
 		"category":    "description = \"Same.\"\ncategory = \"Import\"\n",
 	} {

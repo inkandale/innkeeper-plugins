@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -36,8 +37,10 @@ type session struct {
 	csrf string
 }
 
+// newClient returns a client for the server at base. An empty auth is none,
+// the config's default.
 func newClient(base, auth, username, password string) *client {
-	return &client{base: strings.TrimRight(base, "/"), auth: auth, username: username, password: password}
+	return &client{base: strings.TrimRight(base, "/"), auth: cmp.Or(auth, "none"), username: username, password: password}
 }
 
 // request is one API call. body is sent as is with contentType.

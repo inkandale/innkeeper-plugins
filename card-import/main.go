@@ -12,8 +12,7 @@ import (
 func main() {
 	protocol.Serve(protocol.Plugin[env]{
 		Init: func(_ context.Context, p protocol.InitializeParams) (*env, error) {
-			folder, _ := p.Config["folder"].(string)
-			return &env{folder: folder, blobTmp: p.BlobTmp, library: p.BlobStores["library"]}, nil
+			return &env{folder: configFolder(p.Config), blobTmp: p.BlobTmp, library: p.BlobStores["library"]}, nil
 		},
 		Methods: map[string]func(*env, context.Context, json.RawMessage) (any, error){
 			protocol.MethodImportRun: func(e *env, ctx context.Context, params json.RawMessage) (any, error) {
@@ -21,4 +20,14 @@ func main() {
 			},
 		},
 	})
+}
+
+// configFolder is the folder imports read: the config's, or /import, its
+// default, when the config leaves it out.
+func configFolder(config map[string]any) string {
+	folder, ok := config["folder"].(string)
+	if !ok {
+		return "/import"
+	}
+	return folder
 }

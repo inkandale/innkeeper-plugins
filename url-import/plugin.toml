@@ -1,9 +1,10 @@
 name = "url-import"
-version = "0.3.2"
+title = "URL import"
+version = "0.3.3"
 protocol = 1
 command = ["./url-import"]
 capabilities = ["import", "sites", "pull"]
-description = "Import a card or lorebook from its page URL on chub.ai, RisuRealm, or Character Tavern, link library items to their pages there, and check those pages for the author's changes. Needs a core with source_kinds."
+description = "Import a card or lorebook from its page URL on chub.ai, RisuRealm, or Character Tavern, link library items to their pages there, and check those pages for the author's changes."
 category = "Import"
 inputs = ["url"]
 source_kinds = ["chub", "risu", "character-tavern"]

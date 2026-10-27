@@ -1,5 +1,6 @@
 name = "crucible"
-version = "0.2.0"
+title = "Crucible"
+version = "0.2.1"
 protocol = 1
 command = ["./crucible"]
 capabilities = ["enrich"]

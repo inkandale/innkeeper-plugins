@@ -71,6 +71,14 @@ func TestAuthNoneNeedsNoLogin(t *testing.T) {
 	}
 }
 
+// The form defaults Login to none and leaves a default out of the config.
+func TestAuthLeftOutMeansNone(t *testing.T) {
+	f := newFake(t)
+	if err := list(newClient(f.srv.URL, "", "", "")); err != nil || f.logins != 0 {
+		t.Fatalf("%v, %d logins", err, f.logins)
+	}
+}
+
 func TestSendsTheCSRFToken(t *testing.T) {
 	f := newFake(t)
 	c := newTestClient(f, "account")
@@ -245,7 +253,7 @@ func TestAFinal403DropsTheSession(t *testing.T) {
 
 func TestRejectsAnUnknownAuthMode(t *testing.T) {
 	f := newFake(t)
-	for _, auth := range []string{"", "token"} {
+	for _, auth := range []string{"token", "None"} {
 		pe := final(t, list(newClient(f.srv.URL, auth, "owner", fakePassword)))
 		if !strings.Contains(pe.Message, "auth") || f.requests != 0 {
 			t.Fatalf("auth %q: %q after %d requests", auth, pe.Message, f.requests)

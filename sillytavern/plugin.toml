@@ -1,5 +1,6 @@
 name = "sillytavern"
-version = "0.3.1"
+title = "SillyTavern"
+version = "0.3.2"
 protocol = 1
 command = ["./sillytavern"]
 capabilities = ["push", "pull"]
@@ -11,7 +12,7 @@ secrets = ["password"]
 
 [config]
 type = "object"
-required = ["url", "auth"]
+required = ["url"]
 
 [config.properties.url]
 type = "string"
@@ -22,12 +23,16 @@ description = "The SillyTavern server, such as https://sillytavern.example.com"
 type = "string"
 title = "Login"
 enum = ["none", "basic", "account"]
-description = "none: the server asks for no login. basic: SillyTavern's basic auth (basicAuthMode). account: a SillyTavern user account (enableUserAccounts)."
+default = "none"
+description = "How SillyTavern asks you to log in. none: no login. basic: a browser login prompt. account: SillyTavern's own user accounts."
 
 [config.properties.username]
 type = "string"
 title = "Username"
-description = "Required unless auth is none. The password is the instance's password secret."
+description = "Needed unless Login is none. Enter the password below."
+
+[config.if]
+required = ["auth"]
 
 [config.if.properties.auth]
 enum = ["basic", "account"]

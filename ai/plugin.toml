@@ -1,10 +1,11 @@
 name = "ai"
-version = "0.2.1"
+title = "AI"
+version = "0.2.2"
 protocol = 1
 command = ["./ai"]
 capabilities = ["ai", "settings"]
 multiple_instances = true
-description = "Connect a language model for other plugins to use: chat and embeddings from OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Ollama, llama.cpp, or any OpenAI-compatible server, and decisions from a /v1/systemone decision model or a chat model. One instance per connection. Needs a core with the ai and settings capabilities."
+description = "Connect a language model for other plugins to use: chat and embeddings from OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Ollama, llama.cpp, or any OpenAI-compatible server, and decisions from a /v1/systemone decision model or a chat model. One instance per connection."
 category = "AI"
 secrets = ["api_key"]
 

@@ -1,11 +1,12 @@
 name = "card-import"
-version = "0.3.0"
+title = "Card import"
+version = "0.3.1"
 protocol = 1
 command = ["./card-import"]
 capabilities = ["import"]
 description = "Import character cards and lorebooks from a folder or an uploaded file."
 category = "Import"
-inputs = ["file"]
+inputs = ["file", "folder"]
 
 [config]
 type = "object"
@@ -13,4 +14,5 @@ type = "object"
 [config.properties.folder]
 type = "string"
 title = "Folder"
-description = "Absolute path of the folder imports may read, as the core sees it, such as /import. Leave empty to import only uploads."
+default = "/import"
+description = "Absolute path of the folder imports may read, as the core sees it. Compose mounts ./import there. Leave empty to import only uploads."

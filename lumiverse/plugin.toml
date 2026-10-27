@@ -1,5 +1,6 @@
 name = "lumiverse"
-version = "0.3.1"
+title = "Lumiverse"
+version = "0.3.2"
 protocol = 1
 command = ["./lumiverse"]
 capabilities = ["push", "pull"]

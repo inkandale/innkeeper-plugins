@@ -95,7 +95,7 @@ version = "0.1.0"
 	if _, err := toml.DecodeFile(path, &index); err != nil {
 		t.Fatal(err)
 	}
-	if len(index.Plugin) != 3 || index.Plugin[0].Category != "Login" || index.Plugin[2].Category != "Old" {
+	if len(index.Plugin) != 3 || index.Plugin[0].Category != "Login" || index.Plugin[0].Title != "Password login" || index.Plugin[2].Category != "Old" {
 		t.Fatalf("index = %+v", index.Plugin)
 	}
 	if index.Plugin[0].Recommended || !index.Plugin[1].Recommended {
