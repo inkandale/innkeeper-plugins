@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -168,6 +169,16 @@ func TestClientTimeoutIsRetryable(t *testing.T) {
 	t.Cleanup(ts.Close)
 	t.Cleanup(func() { close(stall) })
 	wantRetryable(t, "client timeout", streamError(t, "openai-compatible", config.WithBaseURL(ts.URL), config.WithTimeout(50*time.Millisecond)))
+}
+
+func TestChatToAnUnreachableLocalhostSaysHowToReachTheHost(t *testing.T) {
+	ts := httptest.NewServer(http.NotFoundHandler())
+	ts.Close()
+	h := started(t, map[string]any{"provider": "openai-compatible", "base_url": ts.URL, "model": "m"})
+	err := h.call(protocol.MethodAIChat, protocol.AIChatParams{Messages: []protocol.ChatMessage{{Role: "user", Content: "Hi"}}}, nil)
+	if err == nil || !strings.Contains(err.Error(), "host.docker.internal") {
+		t.Fatalf("err = %v, want the host.docker.internal hint", err)
+	}
 }
 
 func TestChatNotOfferedIsMethodNotFound(t *testing.T) {

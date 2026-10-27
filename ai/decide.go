@@ -58,7 +58,7 @@ func systemOne(ctx context.Context, c *connection, p protocol.AIDecideParams) (p
 	if c.apiKey != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return res, protocol.NewError(protocol.CodeInternalError, hideKey(err.Error(), c.apiKey), true)
 	}

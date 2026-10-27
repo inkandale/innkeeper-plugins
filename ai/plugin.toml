@@ -25,7 +25,7 @@ description = "openai-compatible covers vLLM, llama.cpp servers, LM Studio, and 
 [config.properties.base_url]
 type = "string"
 title = "Base URL"
-description = "The API's URL, such as http://localhost:1234/v1. Required for openai-compatible; for other providers it overrides the default."
+description = "The API's URL, such as https://openrouter.ai/api/v1. Required for openai-compatible; for other providers it overrides the default. If Innkeeper runs in Docker, reach a model server on the same machine at host.docker.internal, such as http://host.docker.internal:1234/v1, not localhost."
 
 [config.properties.model]
 type = "string"

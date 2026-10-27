@@ -17,7 +17,7 @@ required = ["url"]
 [config.properties.url]
 type = "string"
 title = "Server URL"
-description = "The SillyTavern server, such as https://sillytavern.example.com"
+description = "The SillyTavern server, such as https://sillytavern.example.com. If Innkeeper runs in Docker, reach one on the same machine at host.docker.internal, such as http://host.docker.internal:8000, not localhost."
 
 [config.properties.auth]
 type = "string"

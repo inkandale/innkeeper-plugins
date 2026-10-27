@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper/protocol"
 	anyllm "github.com/mozilla-ai/any-llm-go"
 	"github.com/mozilla-ai/any-llm-go/config"
@@ -122,15 +124,17 @@ var providers = map[string]newProvider{
 	"llamafile": wrap(llamafile.New),
 }
 
+// httpClient calls every provider. A long generation on a local model can
+// stream for many minutes; the caller's context is what bounds it.
+var httpClient = &http.Client{Timeout: time.Hour, Transport: httpkit.HintLoopback(http.DefaultTransport)}
+
 // provider builds the configured any-llm-go provider. Providers that need
 // a key fail here without one.
 func (s settings) provider(apiKey string) (anyllm.Provider, error) {
 	if s.Provider == "openai-compatible" && s.BaseURL == "" {
 		return nil, errors.New("settings: openai-compatible needs a base_url")
 	}
-	// A long generation on a local model can stream for many minutes; the
-	// caller's context is what bounds it.
-	opts := []config.Option{config.WithTimeout(time.Hour)}
+	opts := []config.Option{config.WithHTTPClient(httpClient)}
 	if apiKey != "" {
 		opts = append(opts, config.WithAPIKey(apiKey))
 	}

@@ -96,3 +96,29 @@ func TestDecodeMapsStatus(t *testing.T) {
 		}
 	}
 }
+
+// unusedPort is a loopback port nothing listens on.
+func unusedPort(t *testing.T) string {
+	t.Helper()
+	srv := httptest.NewServer(http.NotFoundHandler())
+	srv.Close()
+	return srv.URL[strings.LastIndex(srv.URL, ":")+1:]
+}
+
+func TestNewClientExplainsAnUnreachableLoopbackAddress(t *testing.T) {
+	_, err := NewClient(nil).Get("http://localhost:" + unusedPort(t) + "/")
+	if err == nil || !strings.Contains(err.Error(), "host.docker.internal") {
+		t.Fatalf("err = %v, want the host.docker.internal hint", err)
+	}
+}
+
+func TestNewClientLeavesOtherFailuresAlone(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic(http.ErrAbortHandler)
+	}))
+	defer srv.Close()
+	_, err := NewClient(nil).Get(srv.URL)
+	if err == nil || strings.Contains(err.Error(), "host.docker.internal") {
+		t.Fatalf("err = %v, want a failure without the hint", err)
+	}
+}

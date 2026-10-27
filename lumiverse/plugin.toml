@@ -17,7 +17,7 @@ required = ["url", "username"]
 [config.properties.url]
 type = "string"
 title = "Server URL"
-description = "The Lumiverse server, such as https://lumiverse.example.com"
+description = "The Lumiverse server, such as https://lumiverse.example.com. If Innkeeper runs in Docker, reach one on the same machine at host.docker.internal, not localhost."
 
 [config.properties.username]
 type = "string"

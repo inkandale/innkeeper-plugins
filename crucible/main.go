@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/inkandale/innkeeper-plugins/internal/httpkit"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
@@ -28,7 +29,7 @@ func parseSettings(config map[string]any) settings {
 	return settings{URL: strings.TrimRight(strings.TrimSpace(u), "/")}
 }
 
-var client = &http.Client{Timeout: 60 * time.Second}
+var client = &http.Client{Timeout: 60 * time.Second, Transport: httpkit.HintLoopback(http.DefaultTransport)}
 
 func main() {
 	protocol.Serve(protocol.Plugin[settings]{

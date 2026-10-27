@@ -1,5 +1,6 @@
-// Package httpkit has the JSON-over-HTTP client code the app targets share:
-// redirect handling, a reply size cap, and mapping replies to protocol errors.
+// Package httpkit has the HTTP client code plugins share: redirect handling,
+// a reply size cap, mapping replies to protocol errors, and a hint for
+// loopback addresses that can't be reached.
 package httpkit
 
 import (
@@ -7,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -20,7 +22,29 @@ var MaxReply int64 = 64 << 20
 // NewClient returns a client for an app's API that keeps cookies in jar,
 // which may be nil.
 func NewClient(jar http.CookieJar) *http.Client {
-	return &http.Client{Jar: jar, Timeout: time.Minute, CheckRedirect: sameHostSameMethod}
+	return &http.Client{Jar: jar, Timeout: time.Minute, CheckRedirect: sameHostSameMethod, Transport: HintLoopback(http.DefaultTransport)}
+}
+
+// HintLoopback wraps base so that failing to connect to a loopback address
+// says how to reach the host: in a container, loopback is the container.
+func HintLoopback(base http.RoundTripper) http.RoundTripper {
+	return loopbackHint{base}
+}
+
+type loopbackHint struct{ base http.RoundTripper }
+
+func (t loopbackHint) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	var op *net.OpError
+	if err != nil && errors.As(err, &op) && op.Op == "dial" && loopback(req.URL.Hostname()) {
+		err = fmt.Errorf("%w (%s is the Innkeeper server itself. If Innkeeper runs in Docker, reach an app on the same machine at host.docker.internal or the machine's network address)", err, req.URL.Hostname())
+	}
+	return resp, err
+}
+
+func loopback(host string) bool {
+	ip := net.ParseIP(host)
+	return host == "localhost" || strings.HasSuffix(host, ".localhost") || (ip != nil && ip.IsLoopback())
 }
 
 // sameHostSameMethod follows a redirect only where the call survives it. A

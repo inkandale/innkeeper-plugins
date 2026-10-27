@@ -8,7 +8,8 @@ Each instance is one connection. `provider` and `model` are required.
 `api_key` is optional for `openai-compatible`, `ollama`, `llamacpp`, and
 `llamafile`; the other providers need one. `openai-compatible` also needs
 `base_url`, such as `http://localhost:1234/v1` for LM Studio or
-`https://openrouter.ai/api/v1`.
+`https://openrouter.ai/api/v1`. When Innkeeper runs in Docker, `localhost` is
+the container; use `host.docker.internal` for a server on the same machine.
 
 ## What a connection provides
 
