@@ -113,10 +113,10 @@ name = "card-lint"
 title = "Card lint"
 category = "Quality"
 path = "card-lint"
-version = "0.4.2"
+version = "0.4.3"
 protocol = 1
 capabilities = ["enrich"]
-description = "Free, instant checks on every card, no AI needed: missing fields, too short or too long, repeated text, leftover placeholders, garbled text, and language. Try it before AI scoring on a big library."
+description = "Free, instant checks on every card, no AI needed: missing fields, too short or too long, repeated text, leftover placeholders, garbled text, and language. Scores new cards as they're imported; run it from the selection bar for cards already in the library."
 
 [[plugin]]
 name = "crucible"
