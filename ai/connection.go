@@ -132,7 +132,7 @@ var httpClient = &http.Client{Timeout: time.Hour, Transport: httpkit.HintLoopbac
 // a key fail here without one.
 func (s settings) provider(apiKey string) (anyllm.Provider, error) {
 	if s.Provider == "openai-compatible" && s.BaseURL == "" {
-		return nil, errors.New("settings: openai-compatible needs a base_url")
+		return nil, errors.New("Fill in Base URL first: the address of your OpenAI-compatible server")
 	}
 	opts := []config.Option{config.WithHTTPClient(httpClient)}
 	if apiKey != "" {

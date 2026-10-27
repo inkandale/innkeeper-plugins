@@ -16,7 +16,7 @@ func TestConnectRefusesBadSettings(t *testing.T) {
 		{map[string]any{"provider": "openai", "model": "gpt-5"}, "sk-x", ""},
 		{map[string]any{"provider": "anthropic", "model": "claude"}, "k", ""},
 		{map[string]any{"provider": "openai-compatible", "model": "m", "base_url": "http://localhost:8000/v1"}, "", ""},
-		{map[string]any{"provider": "openai-compatible", "model": "m"}, "", "base_url"},
+		{map[string]any{"provider": "openai-compatible", "model": "m"}, "", "Base URL"},
 		{map[string]any{"provider": "ollama", "model": "llama3"}, "", ""},
 		{map[string]any{"provider": "llamacpp", "model": "m"}, "", ""},
 		{map[string]any{"provider": "llamafile", "model": "m"}, "", ""},

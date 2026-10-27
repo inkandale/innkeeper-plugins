@@ -47,7 +47,7 @@ func TestChatKindAlsoOffersDecide(t *testing.T) {
 
 func TestDecideKindNeedsABaseURL(t *testing.T) {
 	_, _, err := start(t, map[string]any{"provider": "llamacpp", "model": "d3", "kinds": []any{"decide"}})
-	if err == nil || !strings.Contains(err.Error(), "base_url") {
+	if err == nil || !strings.Contains(err.Error(), "Base URL") {
 		t.Fatalf("err = %v", err)
 	}
 }

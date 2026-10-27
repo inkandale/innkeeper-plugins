@@ -65,10 +65,10 @@ func connect(cfg map[string]any, apiKey string) (*connection, error) {
 		return nil, err
 	}
 	if slices.Contains(s.Kinds, "embed") && !embeds(llm) {
-		return nil, fmt.Errorf("settings: %s doesn't offer embeddings", s.Provider)
+		return nil, fmt.Errorf("%s doesn't offer embeddings, so untick embed under Provides", s.Provider)
 	}
 	if slices.Contains(s.Kinds, "decide") && s.BaseURL == "" {
-		return nil, errors.New("settings: decide needs a base_url, the URL its /v1/systemone is under, such as http://localhost:8080/v1")
+		return nil, errors.New("Fill in Base URL first: the address of the decision model, the part before /v1/systemone")
 	}
 	return &connection{settings: s, llm: llm, apiKey: apiKey}, nil
 }

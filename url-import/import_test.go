@@ -149,7 +149,7 @@ func TestFetchErrors(t *testing.T) {
 			t.Errorf("%s: code = %d, want -32004 only for 404 and 410", path, e.Code)
 		}
 	}
-	if _, err := f.get(context.Background(), "Example", "https://example.test/404"); !strings.Contains(err.Error(), "not found on Example") {
+	if _, err := f.get(context.Background(), "Example", "https://example.test/404"); !strings.Contains(err.Error(), "Nothing at that address on Example") {
 		t.Errorf("404: err = %v", err)
 	}
 	if _, err := f.get(context.Background(), "Example", "http://example.test/ua"); err == nil || rpcErr(t, err).Retryable() {

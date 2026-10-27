@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -138,21 +139,40 @@ func mergeToolCalls(provider string, calls, deltas []anyllm.ToolCall) []anyllm.T
 // key or a missing model is the instance's fault, not the request's.
 func modelError(err error) error {
 	var provider *llmerrors.ProviderError
+	text := cause(err).Error()
 	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return protocol.NewError(protocol.CodeInternalError,
+			"The model didn't answer in time. A local model may still be loading, so try again in a minute.", true)
 	case errors.Is(err, llmerrors.ErrAuthentication), errors.Is(err, llmerrors.ErrMissingAPIKey),
-		errors.Is(err, llmerrors.ErrModelNotFound),
-		errors.As(err, &provider) && slices.Contains([]int{401, 403, 404}, provider.StatusCode):
-		return protocol.NewError(protocol.CodeFailed, err.Error(), false)
+		errors.As(err, &provider) && slices.Contains([]int{401, 403}, provider.StatusCode):
+		return protocol.NewError(protocol.CodeFailed, "The AI provider turned down the API key: "+text, false)
+	case errors.Is(err, llmerrors.ErrModelNotFound), errors.As(err, &provider) && provider.StatusCode == 404:
+		return protocol.NewError(protocol.CodeFailed, "The AI provider has no model by that name: "+text, false)
 	case errors.Is(err, llmerrors.ErrInvalidRequest), errors.Is(err, llmerrors.ErrUnsupportedParam),
 		errors.Is(err, llmerrors.ErrContextLength), errors.Is(err, llmerrors.ErrContentFilter):
-		return protocol.NewError(protocol.CodeAIRejected, err.Error(), false)
+		return protocol.NewError(protocol.CodeAIRejected, text, false)
 	// A provider error's status says whether a retry can help: a server error or
 	// no response may pass, but a client error such as 422 won't.
 	case errors.As(err, &provider) && provider.StatusCode >= 400 && provider.StatusCode < 500:
-		return protocol.NewError(protocol.CodeAIRejected, err.Error(), false)
-	case errors.Is(err, llmerrors.ErrRateLimit), errors.Is(err, llmerrors.ErrProvider),
-		errors.Is(err, context.DeadlineExceeded):
-		return protocol.NewError(protocol.CodeInternalError, err.Error(), true)
+		return protocol.NewError(protocol.CodeAIRejected, text, false)
+	case errors.Is(err, llmerrors.ErrRateLimit), errors.Is(err, llmerrors.ErrProvider):
+		return protocol.NewError(protocol.CodeInternalError, text, true)
 	}
 	return err
 }
+
+// cause drops any-llm-go's "[provider] code:" wrapper, which names internals,
+// and keeps what the provider said.
+func cause(err error) error {
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		if t := reflect.TypeOf(e); t.Kind() == reflect.Pointer && t.Elem().PkgPath() == llmErrorsPkg {
+			if inner := errors.Unwrap(e); inner != nil {
+				return inner
+			}
+		}
+	}
+	return err
+}
+
+var llmErrorsPkg = reflect.TypeOf(llmerrors.BaseError{}).PkgPath()

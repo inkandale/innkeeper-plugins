@@ -203,6 +203,24 @@ func TestRateLimitIsRetryable(t *testing.T) {
 	}
 }
 
+func TestModelErrorsReadInPlainWords(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err  error
+		want string
+	}{
+		"timeout": {llmerrors.NewProviderError("openai-compatible", context.DeadlineExceeded),
+			"The model didn't answer in time. A local model may still be loading, so try again in a minute."},
+		"refused": {llmerrors.NewInvalidRequestError("openai", errors.New("tools aren't supported")), "tools aren't supported"},
+		"bad key": {llmerrors.NewAuthenticationError("openai", errors.New("401 invalid key")),
+			"The AI provider turned down the API key: 401 invalid key"},
+	} {
+		var rpcErr *protocol.Error
+		if !errors.As(modelError(tc.err), &rpcErr) || rpcErr.Message != tc.want {
+			t.Errorf("%s: message = %q, want %q", name, rpcErr.Message, tc.want)
+		}
+	}
+}
+
 func TestMergeToolCallsAcrossProviders(t *testing.T) {
 	call := func(id, name, args string) anyllm.ToolCall {
 		return anyllm.ToolCall{ID: id, Function: anyllm.FunctionCall{Name: name, Arguments: args}}

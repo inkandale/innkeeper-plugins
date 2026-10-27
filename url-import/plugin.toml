@@ -1,6 +1,6 @@
 name = "url-import"
 title = "URL import"
-version = "0.3.4"
+version = "0.3.5"
 protocol = 1
 command = ["./url-import"]
 capabilities = ["import", "sites", "pull"]

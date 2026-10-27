@@ -1,6 +1,6 @@
 name = "ai"
 title = "AI"
-version = "0.2.3"
+version = "0.2.4"
 protocol = 1
 command = ["./ai"]
 capabilities = ["ai", "settings"]

@@ -64,7 +64,7 @@ func TestRisuErrors(t *testing.T) {
 		}
 	}
 	_, err := importURL(t, f, "https://realm.risuai.net/character/99999999-2222-3333-4444-555555555555")
-	if e := rpcErr(t, err); e.Code != protocol.CodeRemoteNotFound || e.Retryable() || e.Message != "not found on RisuRealm" {
+	if e := rpcErr(t, err); e.Code != protocol.CodeRemoteNotFound || e.Retryable() || e.Message != "Nothing at that address on RisuRealm. Check the link" {
 		t.Errorf("missing card: err = %v", err)
 	}
 }
