@@ -1,6 +1,6 @@
 name = "ai"
 title = "AI"
-version = "0.2.4"
+version = "0.2.5"
 protocol = 1
 command = ["./ai"]
 capabilities = ["ai", "settings"]
@@ -16,11 +16,26 @@ test = { label = "Test connection" }
 type = "object"
 required = ["provider", "model"]
 
+[config.x-secrets.api_key]
+title = "API key"
+description = "Needed for hosted providers. Local servers usually need none."
+
 [config.properties.provider]
 type = "string"
 title = "Provider"
-enum = ["openai-compatible", "openai", "anthropic", "gemini", "mistral", "groq", "deepseek", "ollama", "llamacpp", "llamafile"]
-description = "openai-compatible covers vLLM, llama.cpp servers, LM Studio, and OpenRouter. The API key is optional for it and for ollama, llamacpp, and llamafile."
+oneOf = [
+  { const = "openai-compatible", title = "OpenAI-compatible server (LM Studio, vLLM, OpenRouter, and others)" },
+  { const = "openai", title = "OpenAI" },
+  { const = "anthropic", title = "Anthropic" },
+  { const = "gemini", title = "Google Gemini" },
+  { const = "mistral", title = "Mistral" },
+  { const = "groq", title = "Groq" },
+  { const = "deepseek", title = "DeepSeek" },
+  { const = "ollama", title = "Ollama" },
+  { const = "llamacpp", title = "llama.cpp" },
+  { const = "llamafile", title = "llamafile" },
+]
+description = "Who runs the model. Pick OpenAI-compatible for LM Studio, vLLM, a llama.cpp server, or OpenRouter."
 
 [config.properties.base_url]
 type = "string"
@@ -36,6 +51,10 @@ description = "Load choices lists the provider's models. Anthropic doesn't list 
 [config.properties.kinds]
 type = "array"
 title = "Provides"
-description = "What this connection is for. Test connection checks each one. decide needs a server with /v1/systemone under the base URL; chat also answers decisions, more roughly."
+description = "What this connection is for. Test connection checks each one. Quick scoring needs a decision model server; a chat model also scores, more slowly and roughly."
 default = ["chat"]
-items = { type = "string", enum = ["chat", "embed", "decide"] }
+items = { type = "string", oneOf = [
+  { const = "chat", title = "Writing (chat)" },
+  { const = "embed", title = "Search by meaning (embeddings)" },
+  { const = "decide", title = "Quick scoring (decision model)" },
+] }

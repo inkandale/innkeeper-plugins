@@ -1,6 +1,6 @@
 name = "sillytavern"
 title = "SillyTavern"
-version = "0.3.3"
+version = "0.3.4"
 protocol = 1
 command = ["./sillytavern"]
 capabilities = ["push", "pull"]
@@ -22,14 +22,22 @@ description = "The SillyTavern server, such as https://sillytavern.example.com. 
 [config.properties.auth]
 type = "string"
 title = "Login"
-enum = ["none", "basic", "account"]
+oneOf = [
+  { const = "none", title = "No login" },
+  { const = "basic", title = "Browser login prompt (basic auth)" },
+  { const = "account", title = "SillyTavern user accounts" },
+]
 default = "none"
-description = "How SillyTavern asks you to log in. none: no login. basic: a browser login prompt. account: SillyTavern's own user accounts."
+description = "How SillyTavern asks you to log in."
 
 [config.properties.username]
 type = "string"
 title = "Username"
-description = "Needed unless Login is none. Enter the password below."
+x-when = { auth = ["basic", "account"] }
+
+[config.x-secrets.password]
+title = "Password"
+x-when = { auth = ["basic", "account"] }
 
 [config.if]
 required = ["auth"]

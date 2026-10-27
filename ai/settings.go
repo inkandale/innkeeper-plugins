@@ -74,8 +74,9 @@ func probeEmbed(ctx context.Context, c *connection) error {
 }
 
 // probeTimeout bounds Test connection, which a dead server would otherwise
-// hold for the provider's hour-long timeout.
-const probeTimeout = 30 * time.Second
+// hold for the provider's hour-long timeout. A local model can take a minute
+// or more to load on its first call.
+const probeTimeout = 2 * time.Minute
 
 // runSetting runs the Test connection button: one small real call per
 // ticked kind, each reported with its latency.
