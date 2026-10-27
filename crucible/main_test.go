@@ -31,7 +31,7 @@ func TestEnrichForwardsEachRevision(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	s := &settings{URL: srv.URL}
+	s := &settings{URL: srv.URL, Timeout: time.Minute}
 	params, _ := json.Marshal(protocol.EnrichRunParams{Run: "r", Revisions: []protocol.EnrichRevision{
 		{CardID: 1, RevisionID: 10, Data: json.RawMessage(`{"name":"Mira"}`)},
 		{CardID: 2, RevisionID: 20, Data: json.RawMessage(`{"name":"Bazaar"}`)},
@@ -81,10 +81,44 @@ func TestEnrichSendsOneRevisionAtATime(t *testing.T) {
 		revs = append(revs, protocol.EnrichRevision{CardID: int64(i), RevisionID: int64(i), Data: json.RawMessage(`{}`)})
 	}
 	params, _ := json.Marshal(protocol.EnrichRunParams{Run: "r", Revisions: revs})
-	if _, err := enrich(context.Background(), &settings{URL: srv.URL}, params); err != nil {
+	if _, err := enrich(context.Background(), &settings{URL: srv.URL, Timeout: time.Minute}, params); err != nil {
 		t.Fatal(err)
 	}
 	if got := most.Load(); got != 1 {
 		t.Fatalf("%d requests in flight at once, want 1", got)
 	}
+}
+
+func TestSlowCardFailsWithTheTimeoutToRaise(t *testing.T) {
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+	}))
+	defer srv.Close()
+	defer close(release)
+	s := parseSettings(map[string]any{"url": srv.URL, "timeout": 0.05})
+	res, err := enrich(context.Background(), &s, mustRevisions(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "the crucible service took longer than 50ms; raise Timeout in Crucible's settings"; res.Results[0].Error != want {
+		t.Fatalf("error = %q, want %q", res.Results[0].Error, want)
+	}
+}
+
+func TestTimeoutDefaultsToFiveMinutes(t *testing.T) {
+	if got := parseSettings(map[string]any{"url": "http://x"}).Timeout; got != 5*time.Minute {
+		t.Fatalf("timeout = %s, want 5m0s", got)
+	}
+}
+
+func mustRevisions(t *testing.T) json.RawMessage {
+	t.Helper()
+	params, err := json.Marshal(protocol.EnrichRunParams{Run: "r", Revisions: []protocol.EnrichRevision{
+		{CardID: 1, RevisionID: 10, Data: json.RawMessage(`{"name":"Mira"}`)},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return params
 }

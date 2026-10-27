@@ -25,7 +25,8 @@ func cleanCard() map[string]string {
 	}
 }
 
-func lintCard(t *testing.T, config map[string]any, card map[string]string) map[string]json.RawMessage {
+// lintCard lints card, any value that marshals to a card's CCv3 data.
+func lintCard[C any](t *testing.T, config map[string]any, card C) map[string]json.RawMessage {
 	t.Helper()
 	s, err := parseSettings(config)
 	if err != nil {
@@ -117,6 +118,22 @@ func TestEachCheckListsItsCodeAndTakesItsPoints(t *testing.T) {
 				t.Errorf("lint = %v, want %v", got, 100-tc.points)
 			}
 		})
+	}
+}
+
+func TestEmptyFirstMessageWithAlternatesTakesTenPoints(t *testing.T) {
+	card := map[string]any{}
+	for k, v := range cleanCard() {
+		card[k] = v
+	}
+	card["first_mes"] = ""
+	card["alternate_greetings"] = []string{" ", "Mira looks up from her ledger and frowns at the puddle."}
+	v := lintCard(t, nil, card)
+	if p := problems(t, v); !slices.Equal(p, []string{"empty_first_message"}) {
+		t.Fatalf("problems = %v, want [empty_first_message]", p)
+	}
+	if got := number(t, v, "lint"); got != 90 {
+		t.Errorf("lint = %v, want 90", got)
 	}
 }
 

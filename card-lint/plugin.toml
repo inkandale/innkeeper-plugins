@@ -1,6 +1,6 @@
 name = "card-lint"
 title = "Card lint"
-version = "0.4.3"
+version = "0.4.4"
 protocol = 1
 command = ["./card-lint"]
 capabilities = ["enrich"]

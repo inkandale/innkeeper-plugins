@@ -19,6 +19,13 @@ type card struct {
 	FirstMessage string `json:"first_mes"`
 	SystemPrompt string `json:"system_prompt"`
 	PostHistory  string `json:"post_history_instructions"`
+	// Alternates are the other greetings an app offers by swiping.
+	Alternates []string `json:"alternate_greetings"`
+}
+
+// hasAlternate reports whether the card has a greeting besides its first message.
+func (c card) hasAlternate() bool {
+	return slices.ContainsFunc(c.Alternates, func(g string) bool { return !blank(g) })
 }
 
 // alwaysOn are the fields sent with every message.
@@ -54,7 +61,9 @@ var checks = []struct {
 }{
 	{"no_name", 100, func(f facts) bool { return blank(f.card.Name) }},
 	{"no_description", 100, func(f facts) bool { return blank(f.card.Description) }},
-	{"no_first_message", 100, func(f facts) bool { return blank(f.card.FirstMessage) }},
+	{"no_first_message", 100, func(f facts) bool { return blank(f.card.FirstMessage) && !f.card.hasAlternate() }},
+	// The chat opens on an empty message until the owner swipes to an alternate.
+	{"empty_first_message", 10, func(f facts) bool { return blank(f.card.FirstMessage) && f.card.hasAlternate() }},
 	{"too_short", 100, func(f facts) bool {
 		return tokens(f.card.Description, f.card.Personality, f.card.Scenario) < f.settings.MinTokens
 	}},

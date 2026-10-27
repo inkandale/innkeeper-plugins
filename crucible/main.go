@@ -20,16 +20,26 @@ import (
 // settings is an instance's config.
 type settings struct {
 	URL string
+	// Timeout bounds one card's request.
+	Timeout time.Duration
 }
+
+// defaultTimeout gives a large card time to score; the service scores serially.
+const defaultTimeout = 5 * time.Minute
 
 // parseSettings does not require the URL: core's config check skips required
 // settings, so the plugin must start without one and fail when used.
 func parseSettings(config map[string]any) settings {
 	u, _ := config["url"].(string)
-	return settings{URL: strings.TrimRight(strings.TrimSpace(u), "/")}
+	s := settings{URL: strings.TrimRight(strings.TrimSpace(u), "/"), Timeout: defaultTimeout}
+	if secs, ok := config["timeout"].(float64); ok && secs > 0 {
+		s.Timeout = time.Duration(secs * float64(time.Second))
+	}
+	return s
 }
 
-var client = &http.Client{Timeout: 60 * time.Second, Transport: httpkit.HintLoopback(http.DefaultTransport)}
+// client has no timeout of its own: score bounds each request with the instance's Timeout.
+var client = &http.Client{Transport: httpkit.HintLoopback(http.DefaultTransport)}
 
 func main() {
 	protocol.Serve(protocol.Plugin[settings]{
@@ -77,13 +87,18 @@ func score(ctx context.Context, s *settings, rev protocol.EnrichRevision) protoc
 	if err != nil {
 		return fail(err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL+"/score", bytes.NewReader(body))
+	reqCtx, cancel := context.WithTimeout(ctx, s.Timeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, s.URL+"/score", bytes.NewReader(body))
 	if err != nil {
 		return fail(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
+		if ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded) {
+			return fail(fmt.Errorf("the crucible service took longer than %s; raise Timeout in Crucible's settings", s.Timeout))
+		}
 		return fail(err)
 	}
 	defer resp.Body.Close()
