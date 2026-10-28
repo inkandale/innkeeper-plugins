@@ -4,8 +4,8 @@
 //
 //	go run ./internal/publish -out dist -url https://github.com/<owner>/<repo>/releases/download card-codec
 //
-// With -categorize it instead updates a published index's categories and
-// recommended plugins in place.
+// With -index it instead updates a published index in place: its categories,
+// each plugin's title and recommended mark, and each version's release notes.
 package main
 
 import (
@@ -19,6 +19,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -48,6 +51,7 @@ type entry struct {
 	Recommended  bool       `toml:"recommended,omitempty"`
 	Version      string     `toml:"version"`
 	Released     string     `toml:"released,omitempty"`
+	Notes        string     `toml:"notes,omitempty"`
 	Protocol     int        `toml:"protocol"`
 	Capabilities []string   `toml:"capabilities"`
 	Description  string     `toml:"description"`
@@ -58,10 +62,10 @@ type entry struct {
 func main() {
 	out := flag.String("out", "dist", "folder to write releases into, one subfolder per tag")
 	base := flag.String("url", "", "release download URL, up to /releases/download")
-	categorized := flag.String("categorize", "", "published index to update with index.toml's categories and recommended plugins")
+	published := flag.String("index", "", "published index to update with index.toml's categories and plugin details, and release notes from git")
 	flag.Parse()
-	if *categorized != "" {
-		if err := categorize(".", *categorized); err != nil {
+	if *published != "" {
+		if err := finishIndex(".", *published); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -130,10 +134,11 @@ func publish(root, out, base, folder string) (string, error) {
 	return tag, toml.NewEncoder(f).Encode(map[string][]entry{"plugin": {*e}})
 }
 
-// categorize sets the published index at path's category order, and each
-// plugin's title, category, and recommended mark, from index.toml. They belong to the
-// plugin, not a version, and a release's entry.toml is never rebuilt.
-func categorize(root, path string) error {
+// finishIndex sets the published index at path's category order, and each
+// plugin's title, category, and recommended mark, from index.toml, and each
+// version's notes from git. A release's entry.toml is never rebuilt, so
+// these are filled in here.
+func finishIndex(root, path string) error {
 	var repo, published struct {
 		Categories []string `toml:"categories,omitempty"`
 		Plugin     []entry  `toml:"plugin"`
@@ -154,6 +159,11 @@ func categorize(root, path string) error {
 			published.Plugin[i].Title = r.Title
 			published.Plugin[i].Category = r.Category
 			published.Plugin[i].Recommended = r.Recommended
+			notes, err := releaseNotes(root, r.Path, e.Name+"-v"+e.Version)
+			if err != nil {
+				return fmt.Errorf("%s: %w", e.Name, err)
+			}
+			published.Plugin[i].Notes = notes
 		}
 	}
 	f, err := os.Create(path)
@@ -162,6 +172,52 @@ func categorize(root, path string) error {
 	}
 	defer f.Close()
 	return toml.NewEncoder(f).Encode(published)
+}
+
+// conventional splits a Conventional Commits subject into its type and text.
+var conventional = regexp.MustCompile(`^(\w+)(?:\([^)]*\))?!?: (.+)$`)
+
+// releaseNotes lists the subjects of the commits that changed folder between
+// the release tagged tag and the one before it, one per line. Commits owners
+// never notice, such as chores and docs, are left out. A first release has none.
+func releaseNotes(root, folder, tag string) (string, error) {
+	out, err := git(root, "tag", "--list", tag[:strings.LastIndex(tag, "-v")+2]+"*", "--sort=v:refname")
+	if err != nil {
+		return "", err
+	}
+	tags := strings.Fields(out)
+	at := slices.Index(tags, tag)
+	if at < 1 {
+		return "", nil
+	}
+	out, err = git(root, "log", "--format=%s", tags[at-1]+".."+tag, "--", folder)
+	if err != nil {
+		return "", err
+	}
+	var lines []string
+	for _, subject := range strings.Split(strings.TrimSpace(out), "\n") {
+		if m := conventional.FindStringSubmatch(subject); m != nil {
+			if !slices.Contains([]string{"feat", "fix", "perf"}, m[1]) {
+				continue
+			}
+			subject = m[2]
+		}
+		if subject != "" {
+			lines = append(lines, "- "+strings.ToUpper(subject[:1])+subject[1:])
+		}
+	}
+	return strings.Join(lines, "\n"), nil
+}
+
+// git runs git in root and returns its output.
+func git(root string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+	}
+	return string(out), nil
 }
 
 // tarball builds folder for one platform and packs the binary with its

@@ -84,7 +84,7 @@ func TestPublishKeepsUses(t *testing.T) {
 	}
 }
 
-func TestCategorize(t *testing.T) {
+func TestFinishIndex(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "index.toml")
 	published := `[[plugin]]
 name = "password-login"
@@ -102,7 +102,7 @@ version = "0.1.0"
 	if err := os.WriteFile(path, []byte(published), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := categorize("../..", path); err != nil {
+	if err := finishIndex("../..", path); err != nil {
 		t.Fatal(err)
 	}
 	var index struct {
@@ -120,6 +120,46 @@ version = "0.1.0"
 	}
 	if !slices.Equal(index.Categories, []string{"Apps", "Import", "AI", "Quality", "Login", "Advanced"}) {
 		t.Fatalf("categories = %v", index.Categories)
+	}
+}
+
+func TestReleaseNotesListChangesSinceThePreviousRelease(t *testing.T) {
+	root := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		if _, err := git(root, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	commit := func(folder, subject string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Join(root, folder), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, folder, "f"), []byte(subject), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		run("add", "-A")
+		run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", subject)
+	}
+	run("init", "-q")
+	commit("lumi", "feat(lumi): push cards")
+	run("tag", "lumi-v0.9.0")
+	commit("lumi", "fix(lumi): keep greetings")
+	commit("lumi", "chore: tidy imports")
+	commit("other", "feat(other): something else")
+	commit("lumi", "Handle large lorebooks")
+	run("tag", "lumi-v0.10.0")
+
+	notes, err := releaseNotes(root, "lumi", "lumi-v0.10.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "- Handle large lorebooks\n- Keep greetings"; notes != want {
+		t.Fatalf("notes = %q, want %q", notes, want)
+	}
+	if notes, err := releaseNotes(root, "lumi", "lumi-v0.9.0"); err != nil || notes != "" {
+		t.Fatalf("first release notes = %q, %v; want none", notes, err)
 	}
 }
 
