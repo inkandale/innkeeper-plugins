@@ -1,6 +1,6 @@
 name = "crucible"
 title = "Crucible"
-version = "0.2.3"
+version = "0.3.0"
 protocol = 1
 command = ["./crucible"]
 capabilities = ["enrich"]
@@ -25,10 +25,13 @@ first_impression = { type = "score", range = [0, 100], label = "First impression
 roleplayability = { type = "score", range = [0, 100], label = "Roleplayability" }
 token_efficiency = { type = "score", range = [0, 100], label = "Token efficiency" }
 field_governance = { type = "score", range = [0, 100], label = "Field governance" }
+severity = { type = "score", range = [0, 100], label = "Severity" }
 rating = { type = "text", label = "Rating" }
 card_type = { type = "text", label = "Card type" }
 pov = { type = "text", label = "Point of view" }
 format = { type = "text", label = "Format" }
+sexual = { type = "text", label = "Sexual content" }
+violence = { type = "text", label = "Violence" }
 flags = { type = "list", label = "Flags" }
 contradictions = { type = "list", label = "Contradictions" }
 suggestions = { type = "list", label = "Suggestions" }
