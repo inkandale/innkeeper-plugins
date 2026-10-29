@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -85,11 +87,17 @@ func keysFrom(s string) []string {
 // and around any code fence or prose.
 func parseObject(output string) (map[string]json.RawMessage, error) {
 	v := strings.TrimSpace(visible(output))
+	cutOff := false
 	for start := range objectStarts(v) {
 		var obj map[string]json.RawMessage
-		if json.NewDecoder(strings.NewReader(start)).Decode(&obj) == nil {
+		err := json.NewDecoder(strings.NewReader(start)).Decode(&obj)
+		if err == nil {
 			return obj, nil
 		}
+		cutOff = cutOff || errors.Is(err, io.ErrUnexpectedEOF)
+	}
+	if cutOff {
+		return nil, errors.New("the model's reply stopped before its JSON object ended, most likely at the token limit; raise Max tokens under Advanced in Forge's settings")
 	}
 	if len(v) > 150 {
 		v = v[:150] + "…"

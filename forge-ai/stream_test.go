@@ -58,8 +58,8 @@ func TestParseObjectAfterThinkAndFence(t *testing.T) {
 	if _, err := parseObject("I can't help with that."); err == nil || !strings.Contains(err.Error(), "I can't help") {
 		t.Fatalf("prose: err = %v, want one quoting the output", err)
 	}
-	if _, err := parseObject(`{"name": "Bo", "desc`); err == nil {
-		t.Fatal("truncated object parsed")
+	if _, err := parseObject("```json\n{\"name\": \"Bo\", \"desc"); err == nil || !strings.Contains(err.Error(), "Max tokens") {
+		t.Fatalf("truncated object: err = %v, want one naming Max tokens", err)
 	}
 }
 
