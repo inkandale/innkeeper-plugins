@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -131,7 +132,7 @@ func TestMalformedPlanFailsTheRun(t *testing.T) {
 		"note not text": `{"description": 3}`,
 		"note a list":   `{"description": ["Cut it."]}`,
 	} {
-		llm, cfg := withLLM(t, streamed(plan), streamed(`{"description": "x"}`))
+		llm, cfg := withLLM(t, streamed(plan), streamed(plan), streamed(`{"description": "x"}`))
 		h := startPlugin(t, cfg)
 		p := sampleRun(t, "tighten")
 		p.Field = ""
@@ -139,9 +140,30 @@ func TestMalformedPlanFailsTheRun(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "plan") {
 			t.Errorf("%s: err = %v, want a plan error", name, err)
 		}
-		if len(llm.requests) != 1 {
-			t.Errorf("%s: %d requests, want only the plan", name, len(llm.requests))
+		if len(llm.requests) != 2 {
+			t.Errorf("%s: %d requests, want the plan and its one retry", name, len(llm.requests))
 		}
+	}
+}
+
+// A model that writes each field's new text into the plan runs out of tokens mid-object.
+func TestCutOffPlanIsAskedForOnceMore(t *testing.T) {
+	llm, cfg := withLLM(t,
+		streamed("```json\n{\"description\": \"A very big, very tall orc who"),
+		streamed(`{"description": "Cut the repeated height."}`),
+		streamed(`{"description": "A big orc."}`))
+	h := startPlugin(t, cfg)
+	p := sampleRun(t, "tighten")
+	p.Field = ""
+	res, err := h.run(t, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m := proposalOf(t, res); len(llm.requests) != 3 || m["description"] != "A big orc." {
+		t.Fatalf("%d requests, proposal %v", len(llm.requests), m)
+	}
+	if !strings.Contains(fmt.Sprint(llm.requests[1]["messages"]), "not the field's text") {
+		t.Fatalf("retry doesn't ask for notes: %v", llm.requests[1]["messages"])
 	}
 }
 

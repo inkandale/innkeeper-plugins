@@ -67,25 +67,43 @@ func (srv *server) plan(ctx context.Context, in *instance, r *run) (map[string]s
 	if err != nil {
 		return nil, "", err
 	}
-	obj, err := parseObject(reply.Text)
-	if err != nil {
+	notes, err := planNotes(reply.Text, r.Fields)
+	if err == nil {
+		return notes, reply.Text, nil
+	}
+	// Some models copy each field's text into the plan despite the prompt and run out of tokens mid-object.
+	req.Messages = append(req.Messages,
+		protocol.ChatMessage{Role: "assistant", Content: reply.Text},
+		protocol.ChatMessage{Role: "user", Content: "That reply couldn't be used: " + err.Error() +
+			". Answer again with only the JSON object: a note of one to three sentences per field, saying what to change, not the field's text."})
+	if reply, err = srv.complete(ctx, in, r.Run, req, toolbox{}, noProgress); err != nil {
 		return nil, "", err
 	}
+	notes, err = planNotes(reply.Text, r.Fields)
+	return notes, reply.Text, err
+}
+
+// planNotes reads the plan's note per field out of its reply.
+func planNotes(text string, fields []string) (map[string]string, error) {
+	obj, err := parseObject(text)
+	if err != nil {
+		return nil, err
+	}
 	notes := map[string]string{}
-	for _, f := range r.Fields {
+	for _, f := range fields {
 		raw, ok := obj[f]
 		if !ok || string(raw) == "null" {
 			continue
 		}
 		var note string
 		if err := json.Unmarshal(raw, &note); err != nil {
-			return nil, "", fmt.Errorf("the model's note for %s isn't text", f)
+			return nil, fmt.Errorf("the model's note for %s isn't text", f)
 		}
 		if note = strings.TrimSpace(note); note != "" && !strings.EqualFold(note, "skip") {
 			notes[f] = note
 		}
 	}
-	return notes, reply.Text, nil
+	return notes, nil
 }
 
 // noProgress gives a request no progress messages of its own.
