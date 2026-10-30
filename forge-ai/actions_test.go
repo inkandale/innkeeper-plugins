@@ -106,6 +106,16 @@ func TestEvaluateReport(t *testing.T) {
 	}
 }
 
+func TestEvaluateReportTakesObjectSuggestions(t *testing.T) {
+	out := `{"summary": "Fine.", "dimensions": {"voice": {"score": 80}},
+		"suggestions": ["Add a system prompt.", {"suggestion": "Give her a rival.", "fields": ["description"]}, {"issue": "No greeting.", "fix": "Add one."}, {"priority": 1}]}`
+	r := result(t, sampleRun(t, "evaluate"), out).Report
+	want := []string{"Add a system prompt.", "Give her a rival.", "No greeting. Add one."}
+	if r == nil || !slices.Equal(r.Suggestions, want) {
+		t.Fatalf("report %+v", r)
+	}
+}
+
 func TestEvaluateLorebookReport(t *testing.T) {
 	out := `{"summary": "Thin.", "overall_score": 90,
 		"dimensions": {"triggers": {"score": 40, "comment": "Too broad."}, "consistency": {"score": 80, "comment": "Fine."}},

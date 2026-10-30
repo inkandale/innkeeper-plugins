@@ -346,7 +346,31 @@ type evaluation struct {
 		SuggestedField string `json:"suggested_field"`
 		Reason         string `json:"reason"`
 	} `json:"misplaced_content"`
-	Suggestions []string `json:"suggestions"`
+	Suggestions []suggestion `json:"suggestions"`
+}
+
+// suggestion is one of the model's suggestions. The prompts ask for a
+// string, but models sometimes send an object with the text under a key.
+type suggestion string
+
+func (s *suggestion) UnmarshalJSON(b []byte) error {
+	var text string
+	if json.Unmarshal(b, &text) == nil {
+		*s = suggestion(text)
+		return nil
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return err
+	}
+	var parts []string
+	for _, k := range []string{"suggestion", "text", "description", "issue", "fix"} {
+		if v, ok := obj[k].(string); ok && strings.TrimSpace(v) != "" {
+			parts = append(parts, strings.TrimSpace(v))
+		}
+	}
+	*s = suggestion(strings.Join(parts, " "))
+	return nil
 }
 
 func (ev *evaluator) report(obj map[string]json.RawMessage) (*protocol.Report, error) {
@@ -358,7 +382,12 @@ func (ev *evaluator) report(obj map[string]json.RawMessage) (*protocol.Report, e
 	if err := json.Unmarshal(b, &e); err != nil {
 		return nil, fmt.Errorf("the model's evaluation: %w", err)
 	}
-	r := &protocol.Report{Summary: e.Summary, Score: e.OverallScore, Suggestions: e.Suggestions}
+	r := &protocol.Report{Summary: e.Summary, Score: e.OverallScore}
+	for _, s := range e.Suggestions {
+		if s != "" {
+			r.Suggestions = append(r.Suggestions, string(s))
+		}
+	}
 	var sum float64
 	for _, d := range ev.dimensions {
 		if v, ok := e.Dimensions[d.key]; ok && v.Score != nil {
