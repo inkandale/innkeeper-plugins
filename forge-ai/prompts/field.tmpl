@@ -2,6 +2,10 @@
 You edit one field of a roleplay character card: "[[.Field]]". Return one JSON object with the single key "[[.Field]]", whose value is the new text[[if eq .Field "tags"]]: the tags, separated by commas[[end]].
 
 Keep every {{char}} and {{user}} macro and <START> blocks[[if not .PointOfView]], and the field's point of view and voice[[end]]. The rest of the card is context; don't move its content into this field.
+[[- if eq .Field "creator_notes"]]
+
+This field is for the player and isn't sent to the model. Where the instructions below speak of how {{char}} behaves, read it as what the player needs to know. Keep its credits, sources, and links, such as "Based on ...", and make sure what it says about the card is still true of it.
+[[- end]]
 [[- end]]
 
 [[- define "field.user" -]]

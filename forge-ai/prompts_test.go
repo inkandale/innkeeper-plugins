@@ -293,3 +293,23 @@ func TestPromptSettingsMatchKeys(t *testing.T) {
 		t.Fatalf("prompts properties %v, want %v", got, want)
 	}
 }
+
+// Apps don't send creator_notes to the model, so judging it by how {{char}}
+// behaves would cut it to nothing, and a revised card needs notes that match.
+func TestCreatorNotesKeepCreditsAndMatchTheCard(t *testing.T) {
+	p := sampleRun(t, "tighten")
+	p.Field = "creator_notes"
+	if system, _, _ := render(t, p, settings{}); !strings.Contains(system, "isn't sent to the model") || !strings.Contains(system, "Based on") {
+		t.Errorf("tighten creator_notes lacks the player-notes rule:\n%s", system)
+	}
+	if system, _, _ := render(t, sampleRun(t, "tighten"), settings{}); strings.Contains(system, "Based on") {
+		t.Errorf("tighten description carries the creator_notes rule:\n%s", system)
+	}
+	system, _, err := wholeCardRun(t, "revise").planPrompts(settings{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(system, `give "creator_notes" a note`) {
+		t.Errorf("plan doesn't ask to bring creator_notes in line:\n%s", system)
+	}
+}

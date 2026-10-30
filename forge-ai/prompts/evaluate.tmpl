@@ -17,11 +17,12 @@ Apply type-specific rules below. Do not apply character card rules to scenario c
 
 **roleplayability** — Does the scenario give {{user}} clear hooks and agency? Can a player engage without being told what to do?
 
-**token_efficiency** — Are always-on fields (description, personality, scenario) dense and intentional, or padded with information that doesn't change behavior? Is there redundancy across fields?
+**token_efficiency** — Are always-on fields (description, personality, scenario) dense and intentional, or padded with information that doesn't change behavior? Is there redundancy across fields? Don't count creator_notes: it isn't sent to the model.
 
 **field_governance** — Is content in the correct field?
 - Character: description=backstory/appearance, personality=traits/drives, scenario=current stakes, system_prompt=behavioral contract, post_history_instructions=per-turn steering
 - Scenario: description=world premise, personality=NPC cast index (not full profiles), scenario=user's role, system_prompt=game mechanics
+- creator_notes is shown to the player and never sent to the model: flag instructions for the AI in it, which have no effect, and notes that no longer describe the card
 - Flag: OOC mechanics in character fields, NPC profiles in description, duplicate constraints across multiple fields, empty system_prompt/post_history_instructions when they'd help
 
 ## Step 3: Identify Issues
