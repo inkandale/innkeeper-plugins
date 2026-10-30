@@ -803,6 +803,7 @@ Not a CI step: it uses the 5090 and the live database read-only.
   at `card-embed` instead: copy it into `card-embed/` as an untracked file,
   answer `ai.chat` from SGLang and `ai.embed` from the Qwen3 embedding
   endpoint the cluster's `llm` gateway serves, and run it on
-  `scored.json`'s five cards. Expect five results, each with a premise,
+  the five cards in
+  `/private/tmp/claude-501/-Users-dgibbons/10c821db-4496-43ee-9449-2a952e6ebc2b/scratchpad/fe/scored.json`. Expect five results, each with a premise,
   themes and a vector, in about two seconds.
 - [ ] **Step 3:** Stop SGLang when done.
