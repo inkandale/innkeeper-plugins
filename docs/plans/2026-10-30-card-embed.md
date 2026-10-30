@@ -692,9 +692,8 @@ can rank by meaning.
 2. Optional: add a chat connection for summaries. Similar cards then match
    on what a card is about rather than how it's written. A small model is
    enough; Gemma 4 E4B summarized 125 cards in 18 seconds on one RTX 5090.
-3. Add a Similar cards instance with those connections.
-4. In Settings, under Plugins, set **Vectors from** to it.
-5. Run it from the library's selection bar on the cards you have. New and
+3. Set up the Similar cards plugin with those connections.
+4. Run it from the library's selection bar on the cards you have. New and
    edited cards are done as they change.
 
 PostgreSQL needs pgvector. Without it, the plugin still writes premises and
