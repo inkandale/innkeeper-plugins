@@ -1,6 +1,6 @@
 name = "forge-ai"
 title = "Forge"
-version = "0.11.9"
+version = "0.12.0"
 protocol = 1
 command = ["./forge-ai"]
 capabilities = ["action", "records", "enrich", "settings"]
@@ -88,6 +88,8 @@ first_impression = { type = "score", range = [0, 100], label = "First impression
 roleplayability = { type = "score", range = [0, 100], label = "Roleplayability" }
 token_efficiency = { type = "score", range = [0, 100], label = "Token efficiency" }
 field_governance = { type = "score", range = [0, 100], label = "Field governance" }
+premise = { type = "text", label = "Premise", embed = true }
+themes = { type = "list", label = "Themes", embed = true }
 
 [records.skill]
 label = "Skills"

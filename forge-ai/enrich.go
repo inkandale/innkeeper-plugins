@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 	"sync/atomic"
 
@@ -76,6 +77,11 @@ func (srv *server) enrich(ctx context.Context, in *instance, params json.RawMess
 			_ = in.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: p.Run, Done: n - 1, Total: int64(len(p.Revisions)),
 				Message: fmt.Sprintf("Evaluating %s (%d of %d)", revisionName(rev), n, len(p.Revisions))})
 			values, vm, err := srv.scores(ctx, in, p, rev)
+			if err == nil {
+				var summary map[string]json.RawMessage
+				summary, err = srv.summarize(ctx, in, p.Run, rev)
+				maps.Copy(values, summary)
+			}
 			if err != nil {
 				results[i] = protocol.EnrichResult{RevisionID: rev.RevisionID, Error: err.Error()}
 				return

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,13 +17,18 @@ import (
 
 // fakeLLM stands in for an ai instance: the fake host answers each ai.chat
 // for its connection with the next reply. requests holds each call's params
-// as a JSON object.
+// as a JSON object. Summary requests get summary, or a fixed premise and
+// themes when it is empty, and are counted in summaries instead.
 type fakeLLM struct {
 	mu        sync.Mutex
 	replies   []fakeReply
 	requests  []map[string]any
 	onRequest func()
+	summary   string
+	summaries int
 }
+
+const fakeSummary = "Premise: An orc guards a gate.\nThemes: Guard duty, orcs, guard duty"
 
 type fakeReply struct {
 	status int      // nonzero: refuse with -32010, as a model without tool support does
@@ -59,6 +65,12 @@ func (f *fakeLLM) answer(conn *protocol.Conn, raw json.RawMessage) (any, error) 
 		return nil, protocol.NewError(protocol.CodeInvalidParams, "bad ai.chat", false)
 	}
 	f.mu.Lock()
+	if len(p.Messages) == 1 && strings.HasPrefix(p.Messages[0].Content, "You index roleplay character cards") {
+		f.summaries++
+		text := cmp.Or(f.summary, fakeSummary)
+		f.mu.Unlock()
+		return protocol.AIChatResult{Text: text, Model: "m"}, nil
+	}
 	f.requests = append(f.requests, body)
 	hook := f.onRequest
 	if len(f.replies) == 0 {
