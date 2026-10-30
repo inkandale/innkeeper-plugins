@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -25,6 +26,8 @@ const maxBody = pluginio.MaxInput
 type fetcher struct {
 	http *http.Client
 	gap  time.Duration // the least time between two requests to one host
+	// pause is how long a host that answers 429 without a Retry-After is left alone.
+	pause time.Duration
 
 	mu   sync.Mutex
 	next map[string]time.Time // when each host may next be asked
@@ -33,15 +36,18 @@ type fetcher struct {
 func newFetcher() *fetcher {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.DialContext = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: refusePrivate}).DialContext
-	return &fetcher{http: &http.Client{Timeout: 30 * time.Second, CheckRedirect: httpsOnly, Transport: tr}, gap: time.Second}
+	return &fetcher{http: &http.Client{Timeout: 30 * time.Second, CheckRedirect: httpsOnly, Transport: tr}, gap: time.Second, pause: 30 * time.Second}
 }
+
+// rateTries is how many times get asks a host that keeps answering 429.
+const rateTries = 3
+
+// maxPause caps the Retry-After a host can ask for.
+const maxPause = 10 * time.Minute
 
 // wait holds a request to host until gap has passed since the last one.
 // ponytail: one gap for every site and none for redirects; per-site gaps if a site asks for more.
 func (f *fetcher) wait(ctx context.Context, host string) error {
-	if f.gap == 0 {
-		return nil
-	}
 	f.mu.Lock()
 	at := time.Now()
 	if n := f.next[host]; n.After(at) {
@@ -58,6 +64,28 @@ func (f *fetcher) wait(ctx context.Context, host string) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// backOff holds every request to host for d, so one 429 slows them all
+// instead of each request tripping the limit again.
+func (f *fetcher) backOff(host string, d time.Duration) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.next == nil {
+		f.next = map[string]time.Time{}
+	}
+	if at := time.Now().Add(min(d, maxPause)); at.After(f.next[host]) {
+		f.next[host] = at
+	}
+}
+
+// retryAfter is a Retry-After header's delay in seconds, or fallback.
+// ponytail: the HTTP-date form falls back too; parse it if a site sends one.
+func retryAfter(h string, fallback time.Duration) time.Duration {
+	if s, err := strconv.Atoi(h); err == nil && s >= 0 {
+		return time.Duration(s) * time.Second
+	}
+	return fallback
 }
 
 var errPrivate = errors.New("refused to connect to a private address")
@@ -89,8 +117,8 @@ func httpsOnly(req *http.Request, via []*http.Request) error {
 }
 
 // get fetches url, which must be https, including any URL a site's JSON
-// names. site names the site in errors. A 429, a 5xx, or a network
-// error is retryable, so the core re-queues the job.
+// names. site names the site in errors. A 429 holds the host and asks again
+// up to rateTries times; then it, a 5xx, or a network error is retryable.
 func (f *fetcher) get(ctx context.Context, site, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -99,12 +127,23 @@ func (f *fetcher) get(ctx context.Context, site, url string) ([]byte, error) {
 	if req.URL.Scheme != "https" {
 		return nil, permanent(fmt.Errorf("%s: refusing non-https URL %s", site, req.URL.Redacted()))
 	}
-	if err := f.wait(ctx, req.URL.Host); err != nil {
-		return nil, err
-	}
 	// chub.ai blocks curl/ agents, and JanitorAI blocks Go's default.
 	req.Header.Set("User-Agent", "innkeeper-url-import")
-	resp, err := f.http.Do(req)
+	var resp *http.Response
+	for try := 1; ; try++ {
+		if err := f.wait(ctx, req.URL.Host); err != nil {
+			return nil, err
+		}
+		resp, err = f.http.Do(req)
+		if err != nil || resp.StatusCode != http.StatusTooManyRequests {
+			break
+		}
+		f.backOff(req.URL.Host, retryAfter(resp.Header.Get("Retry-After"), f.pause))
+		if try == rateTries {
+			break
+		}
+		resp.Body.Close()
+	}
 	if err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
