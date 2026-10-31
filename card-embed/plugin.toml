@@ -1,0 +1,45 @@
+name = "card-embed"
+title = "Similar cards"
+version = "0.1.0"
+protocol = 1
+command = ["./card-embed"]
+capabilities = ["enrich"]
+description = "Finds similar cards and powers search by meaning: embeds each card, after a chat model sums up its premise if you pick one. Needs the AI plugin with an embedding model, and pgvector in PostgreSQL."
+category = "AI"
+uses = ["ai.chat", "ai.embed"]
+# Each change costs one embedding call, and one chat call with a summary connection.
+enrich_on_change = true
+# A backfill of a whole archive is one run.
+enrich_max_cards = 1000000
+
+[config]
+type = "object"
+required = ["embed_connection"]
+
+[config.properties.embed_connection]
+type = "integer"
+title = "Embedding connection"
+format = "instance"
+x-offers = "ai.embed"
+description = "The AI connection that turns text into vectors. Changing its model means re-running this on your cards."
+
+[config.properties.summary_connection]
+type = "integer"
+title = "Summary connection"
+format = "instance"
+x-offers = "ai.chat"
+description = "Optional: a chat model that sums up each card's premise and themes first, so similar cards share a premise rather than wording. A small model is enough, such as Gemma 4 E4B."
+
+[config.properties.concurrency]
+x-advanced = true
+type = "integer"
+title = "Cards summarized at once"
+minimum = 1
+maximum = 32
+default = 4
+description = "Raise it for a hosted or batching model server; lower it for one that runs one request at a time."
+
+[enrichments]
+premise = { type = "text", label = "Premise" }
+themes = { type = "list", label = "Themes" }
+embedding = { type = "vector", label = "Embedding" }

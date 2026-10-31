@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,22 +27,30 @@ var summaryFields = []string{"description", "personality", "scenario", "system_p
 
 var summaryLine = regexp.MustCompile(`(?im)^\**(premise|themes)\**:?\**:?[ \t]*(.*)$`)
 
-// summarize asks the chat model for a revision's premise and themes.
-func (srv *server) summarize(ctx context.Context, in *instance, run string, rev protocol.EnrichRevision) (map[string]json.RawMessage, error) {
-	prompt, err := promptFiles.ReadFile("prompts/summary.tmpl")
-	if err != nil {
-		return nil, err
-	}
-	text, err := summaryText(rev.Data)
+//go:embed prompts/summary.tmpl
+var summaryPrompt string
+
+// promptVersion names the summary prompt in a vector's space, so vectors
+// from an edited prompt aren't compared with older ones.
+var promptVersion = func() string {
+	h := sha256.Sum256([]byte(summaryPrompt))
+	return hex.EncodeToString(h[:4])
+}()
+
+// summarize asks the summary connection for a revision's premise and themes,
+// at temperature 0 so a card always gets the same summary.
+func summarize(ctx context.Context, conn *protocol.Conn, s *settings, data json.RawMessage) (map[string]json.RawMessage, error) {
+	text, err := summaryText(data)
 	if err != nil {
 		return nil, err
 	}
 	temperature, maxTokens := 0.0, 512
-	res, err := srv.chat(ctx, in, run, protocol.AIChatParams{
-		ServiceCall: protocol.ServiceCall{Instance: in.settings.Connection},
-		Messages:    []protocol.ChatMessage{{Role: "user", Content: string(prompt) + text}},
+	var res protocol.AIChatResult
+	err = conn.Call(ctx, protocol.MethodAIChat, protocol.AIChatParams{
+		ServiceCall: protocol.ServiceCall{Instance: s.Summary},
+		Messages:    []protocol.ChatMessage{{Role: "user", Content: summaryPrompt + text}},
 		Temperature: &temperature, MaxTokens: &maxTokens,
-	}, func(string) {})
+	}, &res)
 	if err != nil {
 		return nil, fmt.Errorf("summarize: %w", err)
 	}
