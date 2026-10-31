@@ -63,10 +63,12 @@ func (s *settings) space(embedModel string) string {
 	return out
 }
 
+var errNoEmbed = errors.New("pick an embedding connection in this plugin's settings")
+
 // embed returns one vector per text from the embed connection, and its space.
 func (s *settings) embed(ctx context.Context, texts []string) ([][]float32, string, error) {
 	if s.Embed == 0 {
-		return nil, "", errors.New("pick an embedding connection in this plugin's settings")
+		return nil, "", errNoEmbed
 	}
 	var res protocol.AIEmbedResult
 	if err := s.conn.Call(ctx, protocol.MethodAIEmbed, protocol.AIEmbedParams{

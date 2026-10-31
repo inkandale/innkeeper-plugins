@@ -4,7 +4,7 @@ version = "0.1.0"
 protocol = 1
 command = ["./card-embed"]
 capabilities = ["enrich"]
-description = "Finds similar cards and powers search by meaning: embeds each card, after a chat model sums up its premise if you pick one. Needs the AI plugin with an embedding model, and pgvector in PostgreSQL."
+description = "Finds similar cards and powers search by meaning: embeds each card, after a chat model sums up its premise if you pick one. Each change makes one embedding call, plus one chat call with a summary connection. Needs the AI plugin with an embedding model, and pgvector in PostgreSQL."
 category = "AI"
 uses = ["ai.chat", "ai.embed"]
 # Each change costs one embedding call, and one chat call with a summary connection.

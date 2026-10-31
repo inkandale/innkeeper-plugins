@@ -29,14 +29,23 @@ func (s *settings) enrich(ctx context.Context, params json.RawMessage) (any, err
 	if s.Summary == 0 && !s.Vectors {
 		return nil, errors.New("nothing to write: pick a summary connection, or install pgvector so vectors can be stored")
 	}
+	if s.Vectors && s.Embed == 0 {
+		return nil, errNoEmbed // before any summary is paid for
+	}
 	results := make([]protocol.EnrichResult, len(p.Revisions))
 	texts := make([]string, len(p.Revisions))
 	var wg sync.WaitGroup
 	slots := make(chan struct{}, s.Concurrency)
 	for i, rev := range p.Revisions {
 		results[i] = protocol.EnrichResult{RevisionID: rev.RevisionID, Values: map[string]json.RawMessage{}}
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
+		}
+		if ctx.Err() != nil {
+			break
+		}
 		wg.Add(1)
-		slots <- struct{}{}
 		go func() {
 			defer wg.Done()
 			defer func() { <-slots }()
@@ -99,9 +108,9 @@ func rawText(data json.RawMessage) (string, error) {
 	return text, nil
 }
 
-// addVectors embeds the texts of the cards that got one, in one call. If
-// that call fails, each card is tried alone, so one text the model rejects
-// fails only its own card.
+// addVectors embeds the texts of the cards that got one, in one call. If the
+// provider rejects the batch as invalid, each card is tried alone, so one bad
+// text fails only its own card; any other error fails them all.
 func (s *settings) addVectors(ctx context.Context, results []protocol.EnrichResult, texts []string) {
 	var idx []int
 	var batch []string
@@ -117,14 +126,20 @@ func (s *settings) addVectors(ctx context.Context, results []protocol.EnrichResu
 		raw, _ := json.Marshal(protocol.VectorValue{Space: space, Vector: v})
 		results[i].Values["embedding"] = raw
 	}
-	if vectors, space, err := s.embed(ctx, batch); err == nil {
+	vectors, space, batchErr := s.embed(ctx, batch)
+	if batchErr == nil {
 		for k, i := range idx {
 			set(i, vectors[k], space)
 		}
 		return
 	}
+	var rpcErr *protocol.Error
+	cardFault := ctx.Err() == nil && errors.As(batchErr, &rpcErr) && rpcErr.Code == protocol.CodeAIRejected
 	for k, i := range idx {
-		vectors, space, err := s.embed(ctx, batch[k:k+1])
+		err := batchErr
+		if cardFault {
+			vectors, space, err = s.embed(ctx, batch[k:k+1])
+		}
 		if err != nil {
 			results[i] = protocol.EnrichResult{RevisionID: results[i].RevisionID, Error: err.Error()}
 			continue
