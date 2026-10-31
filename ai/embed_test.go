@@ -14,8 +14,8 @@ func TestEmbedReturnsVectorsInTextOrder(t *testing.T) {
 	if err := h.call(protocol.MethodAIEmbed, protocol.AIEmbedParams{Texts: []string{"a", "b"}}, &res); err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(res.Vectors) != "[[0] [1]]" {
-		t.Fatalf("vectors %v", res.Vectors)
+	if fmt.Sprint(res.Vectors) != "[[0] [1]]" || res.Model != "m" {
+		t.Fatalf("vectors %v model %q", res.Vectors, res.Model)
 	}
 	if req := llm.lastRequest(); req["model"] != "m" || fmt.Sprint(req["input"]) != "[a b]" {
 		t.Fatalf("request %v", req)

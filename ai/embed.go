@@ -22,7 +22,7 @@ func (c *connection) embed(ctx context.Context, params json.RawMessage) (any, er
 	if err != nil {
 		return nil, modelError(err)
 	}
-	return protocol.AIEmbedResult{Vectors: vectors}, nil
+	return protocol.AIEmbedResult{Vectors: vectors, Model: c.settings.Model}, nil
 }
 
 // embedTexts returns one vector per text, in the texts' order. connect

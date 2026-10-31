@@ -7,7 +7,7 @@ capabilities = ["enrich"]
 # Lint makes no model calls, so one run can cover a whole archive.
 enrich_max_cards = 1000000
 # Free and instant, so new cards get scored as they arrive.
-enrich_on_import = true
+enrich_on_change = true
 description = "Free, instant checks on every card, no AI needed: missing fields, too short or too long, repeated text, leftover placeholders, garbled text, and language. Scores new cards as they're imported; run it from the selection bar for cards already in the library."
 category = "Quality"
 
