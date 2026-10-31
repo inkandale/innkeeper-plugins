@@ -26,11 +26,13 @@ func (s *settings) enrich(ctx context.Context, params json.RawMessage) (any, err
 	if len(p.Revisions) == 0 || len(p.Revisions) > protocol.MaxEnrichBatch {
 		return nil, protocol.InvalidParams(fmt.Errorf("revisions must hold 1 to %d", protocol.MaxEnrichBatch))
 	}
+	// Core records failures only from per-card errors, not call errors; a call
+	// error would re-queue these cards every run. Per-card errors back them off.
 	if s.Summary == 0 && !s.Vectors {
-		return nil, errors.New("nothing to write: pick a summary connection, or install pgvector so vectors can be stored")
+		return failAll(p.Revisions, errors.New("nothing to write: pick a summary connection, or install pgvector so vectors can be stored")), nil
 	}
 	if s.Vectors && s.Embed == 0 {
-		return nil, errNoEmbed // before any summary is paid for
+		return failAll(p.Revisions, errNoEmbed), nil // before any summary is paid for
 	}
 	results := make([]protocol.EnrichResult, len(p.Revisions))
 	texts := make([]string, len(p.Revisions))
@@ -65,6 +67,15 @@ func (s *settings) enrich(ctx context.Context, params json.RawMessage) (any, err
 		s.addVectors(ctx, results, texts)
 	}
 	return &protocol.EnrichRunResult{Results: results}, nil
+}
+
+// failAll fails every revision with err, so core records each card as failed.
+func failAll(revs []protocol.EnrichRevision, err error) *protocol.EnrichRunResult {
+	res := make([]protocol.EnrichResult, len(revs))
+	for i, r := range revs {
+		res[i] = protocol.EnrichResult{RevisionID: r.RevisionID, Error: err.Error()}
+	}
+	return &protocol.EnrichRunResult{Results: res}
 }
 
 // cardText is the text to embed for rev: its premise and themes when a

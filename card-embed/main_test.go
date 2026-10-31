@@ -230,18 +230,23 @@ func TestACardWhoseSummaryFailsIsSkippedMidBatch(t *testing.T) {
 
 func TestMissingEmbedConnectionFailsBeforeAnySummary(t *testing.T) {
 	c := start(t, map[string]any{"summary_connection": summaryID}, protocol.FeatureVectors)
-	_, err := callEnrich(c, brakka)
+	res, err := callEnrich(c, brakka)
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err == nil || !strings.Contains(err.Error(), "embedding connection") || c.chats != 0 {
-		t.Fatalf("err %v, chats %d", err, c.chats)
+	if err != nil || len(res.Results) != 1 || !strings.Contains(res.Results[0].Error, "embedding connection") ||
+		len(res.Results[0].Values) != 0 || c.chats != 0 || len(c.embeds) != 0 {
+		t.Fatalf("res %+v err %v, chats %d", res, err, c.chats)
 	}
 }
 
-func TestNothingToWriteIsAnError(t *testing.T) {
+func TestNothingToWriteFailsEachCard(t *testing.T) {
 	c := start(t, map[string]any{"embed_connection": embedID})
-	if _, err := callEnrich(c, brakka); err == nil || !strings.Contains(err.Error(), "nothing to write") {
-		t.Fatalf("err %v", err)
+	res, err := callEnrich(c, brakka)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err != nil || len(res.Results) != 1 || res.Results[0].RevisionID != 100 || !strings.Contains(res.Results[0].Error, "nothing to write") ||
+		len(res.Results[0].Values) != 0 || c.chats != 0 || len(c.embeds) != 0 {
+		t.Fatalf("res %+v err %v, chats %d", res, err, c.chats)
 	}
 }
 
