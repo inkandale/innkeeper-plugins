@@ -53,9 +53,6 @@ func TestEnrichMapsEvaluationToDeclaredKeys(t *testing.T) {
 	if !maps.Equal(got, want) {
 		t.Fatalf("values %v, want %v (out-of-range scores clamped)", got, want)
 	}
-	if v := res.Results[0].Values; string(v[premiseKey]) != `"An orc guards a gate."` || string(v[themesKey]) != `["guard duty","orcs"]` {
-		t.Fatalf("premise %s, themes %s", v[premiseKey], v[themesKey])
-	}
 	m, err := protocol.LoadManifest(".")
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +88,7 @@ func TestEnrichFailedRevisionKeepsTheBatch(t *testing.T) {
 			t.Errorf("revision %d: %+v, want only an error", r.RevisionID, res.Results[i])
 		}
 	}
-	if r := res.Results[2]; r.RevisionID != 102 || r.Error != "" || len(r.Values) != 9 {
+	if r := res.Results[2]; r.RevisionID != 102 || r.Error != "" || len(r.Values) != 7 {
 		t.Fatalf("third revision %+v", r)
 	}
 	var messages []string
@@ -100,30 +97,6 @@ func TestEnrichFailedRevisionKeepsTheBatch(t *testing.T) {
 	}
 	if !slices.Equal(messages, []string{"Evaluating Brakka (1 of 3)", "Evaluating Mira (2 of 3)", "Evaluating Ash (3 of 3)"}) {
 		t.Fatalf("progress %q", messages)
-	}
-}
-
-func TestEnrichSummaryWithoutAPremiseFailsTheRevision(t *testing.T) {
-	llm, cfg := withLLM(t, streamed(evaluated))
-	llm.summary = "I'd rather not."
-	h := startPlugin(t, cfg)
-	res, err := h.enrich(t, enrichParams("Brakka"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r := res.Results[0]; r.Values != nil || !strings.Contains(r.Error, "no premise") {
-		t.Fatalf("result %+v, want a summary error", r)
-	}
-}
-
-func TestEnrichSkipsTheSummaryWhenScoringFails(t *testing.T) {
-	llm, cfg := withLLM(t, streamed("I can't score this."))
-	h := startPlugin(t, cfg)
-	if _, err := h.enrich(t, enrichParams("Brakka")); err != nil {
-		t.Fatal(err)
-	}
-	if llm.summaries != 0 {
-		t.Fatalf("%d summary calls after a failed score", llm.summaries)
 	}
 }
 
@@ -166,12 +139,6 @@ func TestEnrichmentsMatchDimensions(t *testing.T) {
 	}
 	got := map[string]string{}
 	for k, e := range m.Enrichments {
-		if k == premiseKey || k == themesKey {
-			if !e.Embed {
-				t.Errorf("enrichment %s isn't embedded", k)
-			}
-			continue
-		}
 		got[k] = e.Label
 		if e.Type != "score" || !slices.Equal(e.Range, []float64{0, 100}) || e.Grid != (k == qualityKey) {
 			t.Errorf("enrichment %s = %+v", k, e)
@@ -190,7 +157,7 @@ func TestEnrichSkipsDimensionsWithoutAScore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := slices.Sorted(maps.Keys(res.Results[0].Values)); !slices.Equal(got, []string{"premise", "quality", "roleplayability", "themes"}) {
+	if got := slices.Sorted(maps.Keys(res.Results[0].Values)); !slices.Equal(got, []string{"quality", "roleplayability"}) {
 		t.Fatalf("values %v, want only the scored keys", res.Results[0].Values)
 	}
 }
@@ -268,14 +235,11 @@ func confident() *fakeDecider {
 	return f
 }
 
-// values are r's scores, leaving out the premise and themes.
+// values are r's scores.
 func values(t *testing.T, r protocol.EnrichResult) map[string]float64 {
 	t.Helper()
 	got := map[string]float64{}
 	for k, v := range r.Values {
-		if k == premiseKey || k == themesKey {
-			continue
-		}
 		var n float64
 		if err := json.Unmarshal(v, &n); err != nil {
 			t.Fatalf("%s = %s: %v", k, v, err)

@@ -79,18 +79,7 @@ picks and stores its scores, all 0 to 100:
 | `quality` | The mean of the dimensions, shown on the library grid and as the report's score |
 | `consistency`, `voice`, `first_impression`, `roleplayability`, `token_efficiency`, `field_governance` | Each evaluate dimension |
 
-A second call, at temperature 0, summarizes each scored card for search by
-meaning, using `prompts/summary.tmpl`:
-
-| Key | Value |
-|---|---|
-| `premise` | Two or three sentences on the card's setup, with no proper names |
-| `themes` | Five to ten lowercase tags |
-
-Both keys declare `embed`, so the core makes the card's vector from them
-instead of its own text, and Similar cards matches premises, not wording.
-A card whose summary fails stores nothing and shows the error, like a
-failed score.
+For similar cards and search by meaning, use the Similar cards plugin.
 
 A score outside 0 to 100 is clamped to the nearest end, and a dimension
 the model gave no score is left out. A card whose model call fails, or
