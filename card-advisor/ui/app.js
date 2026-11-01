@@ -3,7 +3,10 @@ import { blocks } from "./markdown.js";
 import { applyEvent, finishReply, newReply } from "./reply.js";
 
 const el = (id) => document.getElementById(id);
-const state = { conversation: 0, library: 0, grants: [], running: null, stopped: false };
+const state = { conversation: 0, library: 0, grants: [], running: null, stopped: false, ready: false };
+
+// Runs a click action; a rejected host call becomes a notice instead of an unhandled rejection.
+const guarded = (action) => (...args) => action(...args).catch((e) => showNotice(e.message));
 
 // Each offer shows only when the host granted it.
 const offers = [
@@ -60,9 +63,9 @@ function showPick(parent, pick) {
   name.textContent = pick.name;
   const reason = document.createElement("p");
   reason.textContent = pick.reason;
-  box.append(name, reason, button("Open", () => ask({ call: "host.openCard", card: pick.card_id })));
+  box.append(name, reason, button("Open", guarded(() => ask({ call: "host.openCard", card: pick.card_id }).promise)));
   for (const [label, request, grant] of offers) {
-    if (state.grants.includes(grant)) box.append(button(label, () => ask({ call: "host.request", request, card: pick.card_id })));
+    if (state.grants.includes(grant)) box.append(button(label, guarded(() => ask({ call: "host.request", request, card: pick.card_id }).promise)));
   }
   parent.append(box);
 }
@@ -81,10 +84,13 @@ function showNotice(text, retry) {
   box.className = "message notice";
   box.textContent = text;
   if (retry) {
-    box.append(" ", button("Retry", () => {
+    const b = button("Retry", () => {
+      if (state.running) return;
       box.remove();
       retry();
-    }));
+    });
+    b.className = "retry";
+    box.append(" ", b);
   }
   keepAtBottom(() => el("log").append(box));
 }
@@ -119,6 +125,8 @@ async function send(text, isRetry = false) {
   if (state.running) return;
   const log = el("log");
   document.getElementById("hint")?.remove();
+  // An older failure's Retry would resend stale text once a newer turn exists.
+  if (!isRetry) for (const stale of log.querySelectorAll("button.retry")) stale.remove();
   if (!isRetry) showMessage("user", text);
   const live = document.createElement("div");
   live.className = "message assistant streaming";
@@ -128,6 +136,7 @@ async function send(text, isRetry = false) {
   let reply = newReply(state.conversation);
   try {
     await refreshContext();
+    if (state.stopped) throw new Error("Stopped.");
     keepAtBottom(() => log.append(live));
     const call = callPlugin(
       "send",
@@ -144,11 +153,12 @@ async function send(text, isRetry = false) {
     state.conversation = reply.conversation;
     live.remove();
     showMessage("assistant", reply.text, reply.picks);
-    await loadHistory().catch(() => {});
   } catch (e) {
     live.remove();
     showNotice(state.stopped ? "Stopped." : e.message, () => send(text, true));
   } finally {
+    // After any turn, so a first turn that failed or was stopped still lists its new conversation.
+    if (state.conversation) await loadHistory().catch(() => {});
     state.running = null;
     setBusy(false);
     el("text").focus();
@@ -171,21 +181,20 @@ async function open(id) {
   for (const m of messages) showMessage(m.role, m.content, m.picks ?? []);
 }
 
-const guarded = (action) => () => action().catch((e) => showNotice(e.message));
-
 function resetDelete() {
   el("delete").textContent = "Delete";
   el("delete").classList.remove("armed");
 }
 
 function syncDelete() {
-  el("delete").disabled = state.running !== null || el("history").value === "0";
+  el("delete").disabled = state.running !== null || !Number(el("history").value);
   resetDelete();
 }
 
 // A two-step button: a sandboxed frame without allow-modals can't show window.confirm.
 async function deleteSelected() {
   const id = Number(el("history").value);
+  if (!id) return;
   if (!el("delete").classList.contains("armed")) {
     el("delete").textContent = "Really delete?";
     el("delete").classList.add("armed");
@@ -197,8 +206,9 @@ async function deleteSelected() {
   await loadHistory();
 }
 
-function onSubmit(e) {
-  e.preventDefault();
+// Not a <form>: the sandbox lacks allow-forms, so the browser blocks submission before any submit event.
+function submit() {
+  if (!state.ready) return;
   const text = el("text").value.trim();
   if (!text || state.running) return;
   el("text").value = "";
@@ -208,16 +218,16 @@ function onSubmit(e) {
 function onKeydown(e) {
   if (e.key !== "Enter" || e.shiftKey || e.isComposing) return;
   e.preventDefault();
-  el("ask").requestSubmit();
+  submit();
 }
 
 function onStop() {
-  if (typeof state.running !== "number") return;
+  if (!state.running) return;
   state.stopped = true;
-  abort(state.running);
+  if (typeof state.running === "number") abort(state.running);
 }
 
-el("ask").addEventListener("submit", onSubmit);
+el("send").addEventListener("click", submit);
 el("text").addEventListener("keydown", onKeydown);
 el("stop").addEventListener("click", onStop);
 el("new").addEventListener("click", guarded(async () => { await open(0); await loadHistory(); }));
@@ -232,3 +242,6 @@ try {
 } catch (e) {
   showNotice(`The advisor couldn't start: ${e.message}`);
 }
+// Send stays off until here so showHint can't wipe a message sent mid-startup; a failed start still lets send retry the context.
+state.ready = true;
+el("send").disabled = false;

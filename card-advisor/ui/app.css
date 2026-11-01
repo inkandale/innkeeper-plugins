@@ -1,31 +1,38 @@
+/* The system canvas colors keep the page dark before the host's theme arrives. */
+:root {
+  color-scheme: light dark;
+  --fallback-surface: color-mix(in srgb, CanvasText 6%, Canvas);
+  --fallback-border: color-mix(in srgb, CanvasText 25%, Canvas);
+  --fallback-muted: color-mix(in srgb, CanvasText 60%, Canvas);
+}
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
   display: flex;
   flex-direction: column;
   font: var(--font-size, 14px) var(--font, system-ui, sans-serif);
-  background: var(--bg, #fff);
-  color: var(--text, #111);
+  background: var(--bg, Canvas);
+  color: var(--text, CanvasText);
 }
 #bar, #ask { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; align-items: center; }
-#bar label { font-size: 0.9em; color: var(--text-muted, #666); }
+#bar label { font-size: 0.9em; color: var(--text-muted, var(--fallback-muted)); }
 #history { flex: 1 1 8em; min-width: 0; }
 #log { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 8px; overflow-wrap: anywhere; }
 #ask textarea { flex: 1 1 10em; min-width: 0; resize: none; }
 
 button, select, textarea {
   font: inherit;
-  color: var(--text, #111);
-  background: var(--surface, #f4f4f5);
-  border: 1px solid var(--border, #ccc);
+  color: var(--text, CanvasText);
+  background: var(--surface, var(--fallback-surface));
+  border: 1px solid var(--border, var(--fallback-border));
   border-radius: var(--radius, 6px);
   padding: 6px 10px;
 }
-textarea, select { background: var(--bg, #fff); }
+textarea, select { background: var(--bg, Canvas); }
 button { cursor: pointer; }
 button:hover:not(:disabled) { border-color: var(--accent, #4f46e5); }
 button:disabled { opacity: 0.5; cursor: default; }
-#send { background: var(--accent, #4f46e5); border-color: var(--accent, #4f46e5); color: var(--bg, #fff); }
+#send { background: var(--accent, #4f46e5); border-color: var(--accent, #4f46e5); color: var(--bg, Canvas); }
 #delete.armed { border-color: var(--accent, #4f46e5); color: var(--accent, #4f46e5); }
 :focus-visible { outline: 2px solid var(--accent, #4f46e5); outline-offset: 2px; }
 input[type="checkbox"] { accent-color: var(--accent, #4f46e5); }
@@ -34,7 +41,7 @@ input[type="checkbox"] { accent-color: var(--accent, #4f46e5); }
 .message.user { font-weight: 600; }
 .message p { margin: 0 0 8px; }
 .message.streaming { white-space: pre-wrap; }
-.pick { background: var(--surface, #f4f4f5); border: 1px solid var(--border, #ccc); border-radius: var(--radius, 6px); padding: 8px; margin-top: 8px; }
+.pick { background: var(--surface, var(--fallback-surface)); border: 1px solid var(--border, var(--fallback-border)); border-radius: var(--radius, 6px); padding: 8px; margin-top: 8px; }
 .pick p { margin: 4px 0 8px; }
 .pick button { margin: 0 6px 4px 0; }
-.notice, .hint { color: var(--text-muted, #666); }
+.notice, .hint { color: var(--text-muted, var(--fallback-muted)); }

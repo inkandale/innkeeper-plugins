@@ -3,10 +3,11 @@
 const spansOf = (text) => {
   const clean = text.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1");
   const spans = [];
+  // Only a closed pair is emphasis; the split keeps unclosed asterisks inside plain parts.
   for (const part of clean.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/)) {
     if (!part) continue;
-    if (part.startsWith("**")) spans.push({ text: part.slice(2, -2), bold: true });
-    else if (part.startsWith("*") && part.length > 2) spans.push({ text: part.slice(1, -1), italic: true });
+    if (/^\*\*[^*]+\*\*$/.test(part)) spans.push({ text: part.slice(2, -2), bold: true });
+    else if (/^\*[^*]+\*$/.test(part)) spans.push({ text: part.slice(1, -1), italic: true });
     else spans.push({ text: part });
   }
   return spans;

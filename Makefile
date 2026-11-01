@@ -1,7 +1,7 @@
 # Plugin folders, from index.toml.
 PLUGINS := $(shell sed -n 's/^path = "\(.*\)"/\1/p' index.toml)
 
-.PHONY: build check install
+.PHONY: build check install test-ui
 
 # Each binary goes in its plugin's folder, where command = ["./<folder>"] finds it.
 build:
@@ -16,6 +16,10 @@ build:
 # to the kit's fake model server.
 check: build
 	for p in $(PLUGINS); do cfg=; [ -z "$$INNKEEPER_PLUGIN_DATABASE_URL" ] || cfg="$$(cat $$p/check-config.json 2>/dev/null)"; INNKEEPER_PLUGIN_CONFIG="$$cfg" INNKEEPER_PROVIDER_PLUGIN=ai INNKEEPER_PROVIDER_CONFIG="$$(cat ai/check-provider.json)" go tool innkeeper plugin check $$p || exit 1; done
+
+# Unit tests for each plugin's browser-side modules; these need only node.
+test-ui:
+	node --test */uitest/*.test.mjs
 
 # Copies each plugin's binary, manifest, icon, and ui folder into DEST, such as an image's plugin folder.
 # build runs after the DEST check, so a missing DEST fails before building.

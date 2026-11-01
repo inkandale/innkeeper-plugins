@@ -14,11 +14,11 @@
       <label title="Similar and related cards can come from your other libraries. Search stays in this one."><input id="all" type="checkbox" /> Look across libraries</label>
     </div>
     <main id="log" aria-live="polite" aria-label="Conversation" tabindex="0"></main>
-    <form id="ask">
+    <div id="ask">
       <textarea id="text" rows="2" aria-label="What do you feel like?" placeholder="What do you feel like?"></textarea>
-      <button id="send" type="submit">Send</button>
+      <button id="send" type="button" disabled>Send</button>
       <button id="stop" type="button" hidden>Stop</button>
-    </form>
+    </div>
     <script type="module" src="app.js"></script>
   </body>
 </html>
