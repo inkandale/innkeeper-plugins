@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/inkandale/innkeeper/protocol"
 )
@@ -24,6 +25,8 @@ type instance struct {
 type server struct {
 	// deltas maps an ai.chat's streaming token to its text callback.
 	deltas sync.Map
+	// chats numbers ai.chat streams.
+	chats atomic.Int64
 }
 
 func main() {
