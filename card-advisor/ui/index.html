@@ -1,1 +1,24 @@
-<!doctype html><p>loading</p>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Card advisor</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div id="bar">
+      <select id="history" aria-label="Past conversations"></select>
+      <button id="delete" type="button" disabled>Delete</button>
+      <button id="new" type="button">New chat</button>
+      <label title="Similar and related cards can come from your other libraries. Search stays in this one."><input id="all" type="checkbox" /> Look across libraries</label>
+    </div>
+    <main id="log" aria-live="polite" aria-label="Conversation" tabindex="0"></main>
+    <form id="ask">
+      <textarea id="text" rows="2" aria-label="What do you feel like?" placeholder="What do you feel like?"></textarea>
+      <button id="send" type="submit">Send</button>
+      <button id="stop" type="button" hidden>Stop</button>
+    </form>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
