@@ -165,10 +165,16 @@ async function send(text, isRetry = false) {
   }
 }
 
+// Chats often start with the same words, so the time tells them apart.
+function historyLabel(c) {
+  const when = new Date(c.updated_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return `${c.title} (${when})`;
+}
+
 async function loadHistory() {
   const list = (await callPlugin("list_conversations").promise) ?? [];
   const select = el("history");
-  select.replaceChildren(new Option("Past conversations", "0"), ...list.map((c) => new Option(c.title, String(c.id))));
+  select.replaceChildren(new Option("Past conversations", "0"), ...list.map((c) => new Option(historyLabel(c), String(c.id))));
   select.value = String(state.conversation);
   syncDelete();
 }
