@@ -138,3 +138,14 @@ protocol = 1
 capabilities = ["enrich"]
 uses = ["ai.chat", "ai.embed"]
 description = "Finds similar cards and powers search by meaning: embeds each card, after a chat model sums up its premise if you pick one. Each change makes one embedding call, plus one chat call with a summary connection. Needs the AI plugin with an embedding model, and pgvector in PostgreSQL."
+
+[[plugin]]
+name = "card-advisor"
+title = "Card advisor"
+category = "AI"
+path = "card-advisor"
+version = "0.1.0"
+protocol = 1
+capabilities = ["ui"]
+uses = ["ai.chat"]
+description = "A chat in the corner of every page: describe the mood you want and get a shortlist from your library, with a reason for each pick. Needs the AI plugin set up with a chat model that supports tools."
