@@ -16,6 +16,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -237,6 +238,20 @@ func tarball(root, folder string, m *protocol.Manifest, goos, goarch string) ([]
 			return nil, fmt.Errorf("build %s/%s: %v\n%s", goos, goarch, err, b)
 		}
 		files[filepath.Base(m.Command[0])] = bin
+	}
+	if m.UI != nil {
+		pluginDir := filepath.Join(root, folder)
+		err := filepath.WalkDir(filepath.Join(pluginDir, filepath.Dir(m.UI.Entry)), func(p string, d fs.DirEntry, err error) error {
+			if err != nil || !d.Type().IsRegular() {
+				return err
+			}
+			rel, err := filepath.Rel(pluginDir, p)
+			files[filepath.ToSlash(rel)] = p
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)

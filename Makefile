@@ -17,9 +17,13 @@ build:
 check: build
 	for p in $(PLUGINS); do cfg=; [ -z "$$INNKEEPER_PLUGIN_DATABASE_URL" ] || cfg="$$(cat $$p/check-config.json 2>/dev/null)"; INNKEEPER_PLUGIN_CONFIG="$$cfg" INNKEEPER_PROVIDER_PLUGIN=ai INNKEEPER_PROVIDER_CONFIG="$$(cat ai/check-provider.json)" go tool innkeeper plugin check $$p || exit 1; done
 
-# Copies each plugin's binary, manifest, and icon into DEST, such as an image's plugin folder.
+# Copies each plugin's binary, manifest, icon, and ui folder into DEST, such as an image's plugin folder.
 # build runs after the DEST check, so a missing DEST fails before building.
 install:
 	$(if $(DEST),,$(error DEST is required, such as make install DEST=/plugins))
 	$(MAKE) build
-	for p in $(PLUGINS); do mkdir -p "$(DEST)/$$p" && cp $$p/$$p $$p/plugin.toml $$(ls $$p/icon.* 2>/dev/null) "$(DEST)/$$p/" || exit 1; done
+	for p in $(PLUGINS); do \
+		mkdir -p "$(DEST)/$$p" || exit 1; \
+		cp $$p/$$p $$p/plugin.toml $$(ls $$p/icon.* 2>/dev/null) "$(DEST)/$$p/" || exit 1; \
+		if [ -d $$p/ui ]; then cp -R $$p/ui "$(DEST)/$$p/" || exit 1; fi; \
+	done

@@ -186,3 +186,26 @@ func TestTarballCarriesIcon(t *testing.T) {
 		t.Fatalf("tarball holds %v", names)
 	}
 }
+
+func TestTarballCarriesTheUIFolder(t *testing.T) {
+	m, err := protocol.LoadManifest("../../card-advisor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := tarball("../..", "card-advisor", m, "linux", "amd64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gz, err := gzip.NewReader(bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	tr := tar.NewReader(gz)
+	for h, err := tr.Next(); err == nil; h, err = tr.Next() {
+		names = append(names, h.Name)
+	}
+	if !slices.Contains(names, "ui/index.html") {
+		t.Fatalf("tarball holds %v", names)
+	}
+}
