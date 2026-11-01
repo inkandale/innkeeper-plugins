@@ -144,9 +144,12 @@ func (t *turn) search(text string) (string, error) {
 			if card.Scores == nil {
 				card.Scores = map[string]json.RawMessage{}
 			}
-			card.Scores[s.Key] = s.Value
+			// Core orders a card's scores highest priority first.
+			if _, taken := card.Scores[s.Key]; !taken {
+				card.Scores[s.Key] = s.Value
+			}
 		}
-		t.seen[h.ID] = name
+		t.remember(h.ID, name)
 		cards = append(cards, card)
 	}
 	return note + brief(cards), nil
@@ -238,7 +241,7 @@ func (t *turn) readCard(id int64) (string, error) {
 	if err := json.Unmarshal(res.Entity.Revision.Data, &data); err != nil {
 		return "", errUnreadable
 	}
-	t.seen[res.Entity.ID] = data.Name
+	t.remember(res.Entity.ID, data.Name)
 	return string(res.Entity.Revision.Data), nil
 }
 
@@ -246,8 +249,13 @@ func (t *turn) inScope(library int64) bool {
 	return t.input.AllLibraries || library == t.input.Library
 }
 
+// remember flattens the name because a pick stores it for later turns to replay.
+func (t *turn) remember(id int64, name string) {
+	t.seen[id] = oneLine(name, maxPickName)
+}
+
 func (t *turn) keep(item discovered, group string) shortCard {
-	t.seen[item.CardID] = item.Name
+	t.remember(item.CardID, item.Name)
 	return shortCard{ID: item.CardID, Name: item.Name, Group: group, Tags: item.Tags, Similarity: item.Score}
 }
 
