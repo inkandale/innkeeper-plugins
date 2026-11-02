@@ -414,3 +414,29 @@ func TestTurnWithoutADraftSaysNoCardIsOpen(t *testing.T) {
 		t.Fatalf("system prompt:\n%s", system)
 	}
 }
+
+func TestTurnReplaysAProposalAsItsSummaryAndKeys(t *testing.T) {
+	llm, h := assistantHost(t, streamed("Sure."))
+	history := []message{
+		{Role: "user", Content: "shorter"},
+		{Role: "assistant", Blocks: []block{{Type: "proposal", Summary: "Shorter.", Card: 7, Revision: 11,
+			Fields: map[string]string{"name": "Ash", "description": strings.Repeat("long text ", 1000)}}}},
+	}
+	if _, err := h.turn(t, turnInput{Text: "more", Library: 1}, history...); err != nil {
+		t.Fatal(err)
+	}
+	if got := sent(llm.requests[0])[2]["content"]; got != blockLabel+"proposed changes to description, name: Shorter." {
+		t.Fatalf("replayed %q", got)
+	}
+}
+
+func TestConverseTitlesTheConversationOnOneLine(t *testing.T) {
+	_, h := dbAssistantHost(t, streamed("Sure."))
+	if _, err := h.srv.converse(t.Context(), h.in, "run1", turnInput{Text: " a\nslow\tburn rival", Library: 1}); err != nil {
+		t.Fatal(err)
+	}
+	list, err := h.in.store.conversations(t.Context())
+	if err != nil || len(list) != 1 || list[0].Title != "a slow burn rival" {
+		t.Fatalf("conversations %+v, %v", list, err)
+	}
+}

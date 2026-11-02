@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -165,8 +166,7 @@ func (srv *server) converse(ctx context.Context, in *instance, run string, input
 }
 
 func title(text string) string {
-	runes := []rune(strings.TrimSpace(text))
-	return string(runes[:min(len(runes), 60)])
+	return oneLine(text, 60)
 }
 
 // turnFailure turns a failure the owner can fix into a message they can read.
@@ -286,8 +286,18 @@ func replayed(m message) string {
 			parts = append(parts, visible(b.Markdown))
 			continue
 		}
-		raw, _ := json.Marshal(b)
-		parts = append(parts, blockLabel+string(raw))
+		parts = append(parts, blockLabel+replayedBlock(b))
 	}
 	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+// replayedBlock is a block other than text as the model reads it again. A
+// proposal is its keys and summary only, since its fields can run to 256 KiB
+// and the current draft holds whatever the owner took.
+func replayedBlock(b block) string {
+	if b.Type == "proposal" {
+		return "proposed changes to " + strings.Join(slices.Sorted(maps.Keys(b.Fields)), ", ") + ": " + b.Summary
+	}
+	raw, _ := json.Marshal(b)
+	return string(raw)
 }

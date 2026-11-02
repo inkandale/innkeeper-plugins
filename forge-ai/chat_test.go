@@ -131,3 +131,24 @@ func TestReasoningStaysOutOfToolRounds(t *testing.T) {
 		t.Fatalf("assistant message %v", sent)
 	}
 }
+
+func TestLastRoundRunsOnlyTheClosingTool(t *testing.T) {
+	var replies []fakeReply
+	for range maxToolRounds {
+		replies = append(replies, toolCall("call_1", "get_card", `{"id": 7}`))
+	}
+	_, cfg := withLLM(t, replies...)
+	h := startPlugin(t, cfg)
+	box := finishing(func(string) string { return "" })
+	ran := 0
+	box.call = func(context.Context, string, string) (string, error) {
+		ran++
+		return "[]", nil
+	}
+	if _, err := h.srv.complete(t.Context(), h.in, "1.1", hello, box, noProgress); err != nil {
+		t.Fatal(err)
+	}
+	if ran != maxToolRounds-1 {
+		t.Fatalf("ran %d tool calls, want %d", ran, maxToolRounds-1)
+	}
+}

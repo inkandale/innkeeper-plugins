@@ -80,3 +80,12 @@ func TestStoreDeletesMessagesWithConversation(t *testing.T) {
 		t.Fatalf("list %v, err %v", list, err)
 	}
 }
+
+func TestStoreIndexesConversationsByInstanceAndUpdate(t *testing.T) {
+	st := openTestStore(t)
+	var def string
+	err := st.pool.QueryRow(t.Context(), `SELECT indexdef FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'conversation' AND indexdef LIKE '%(instance, updated_at DESC)%'`).Scan(&def)
+	if err != nil {
+		t.Fatalf("no index on conversation (instance, updated_at DESC): %v", err)
+	}
+}

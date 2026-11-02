@@ -141,6 +141,11 @@ func (srv *server) complete(ctx context.Context, in *instance, run string, param
 			if box.closes(c) {
 				continue
 			}
+			// The last round offers only the closing tool, so a call to any other is unknown.
+			if !slices.ContainsFunc(params.Tools, func(t protocol.ChatTool) bool { return t.Name == c.Name }) {
+				params.Messages = append(params.Messages, protocol.ChatMessage{Role: "tool", Content: fmt.Sprintf("error: no tool %q", c.Name), ToolCallID: c.ID})
+				continue
+			}
 			result, err := box.call(ctx, c.Name, c.Arguments)
 			if err == nil {
 				err = ctx.Err()

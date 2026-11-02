@@ -18,6 +18,8 @@ const (
 	maxRows    = 20
 	// maxLine caps a reason, column, cell, or summary.
 	maxLine = 300
+	// maxMarkdown caps a text block, which every later turn replays.
+	maxMarkdown = 16 << 10
 	// maxDraft caps the draft a turn takes, as the core caps a proposal.
 	maxDraft = 256 << 10
 )
@@ -180,10 +182,14 @@ func (t *turn) check(in []block) ([]block, error) {
 func (t *turn) checkBlock(b block) (block, error) {
 	switch b.Type {
 	case "text":
-		if md := strings.TrimSpace(visible(b.Markdown)); md != "" {
-			return block{Type: "text", Markdown: md}, nil
+		md := strings.TrimSpace(visible(b.Markdown))
+		if md == "" {
+			return block{}, errors.New("text needs markdown")
 		}
-		return block{}, errors.New("text needs markdown")
+		if len(md) > maxMarkdown {
+			return block{}, fmt.Errorf("text is over %d KiB; say it in fewer words", maxMarkdown>>10)
+		}
+		return block{Type: "text", Markdown: md}, nil
 	case "picks":
 		return t.checkPicks(b.Picks)
 	case "table":
@@ -257,7 +263,11 @@ func (t *turn) checkProposal(summary string, fields map[string]string) (block, e
 		if _, ok := t.editable[k]; !ok {
 			return block{}, fmt.Errorf("the card has no text field %q; use one of %s", k, strings.Join(slices.Sorted(maps.Keys(t.editable)), ", "))
 		}
-		out[k] = strings.TrimSpace(v)
+		v = strings.TrimSpace(v)
+		if k == "name" {
+			v = oneLine(v, maxCardName)
+		}
+		out[k] = v
 		size += len(k) + len(out[k])
 	}
 	// The core refuses a proposal over the same cap as the draft.

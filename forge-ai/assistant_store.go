@@ -41,6 +41,7 @@ var assistantTables = []string{
 	blocks jsonb,
 	created_at timestamptz NOT NULL DEFAULT now())`,
 	`CREATE INDEX IF NOT EXISTS message_conversation ON message (conversation_id)`,
+	`CREATE INDEX IF NOT EXISTS conversation_recent ON conversation (instance, updated_at DESC)`,
 }
 
 func (s *store) createConversation(ctx context.Context, title string) (int64, error) {
