@@ -43,6 +43,8 @@ type turnInput struct {
 	Text         string `json:"text"`
 	Library      int64  `json:"library"`
 	AllLibraries bool   `json:"all_libraries"`
+	// Draft is the card open in the Forge, sent only with the cards.edit grant.
+	Draft *draft `json:"draft"`
 }
 
 // turn is the state of one turn's tool calls.
@@ -54,6 +56,10 @@ type turn struct {
 	seen map[int64]string
 	// fatal is a tool failure that ends the turn.
 	fatal error
+	// editable holds the draft's text fields: what the model sees and a proposal may change.
+	editable map[string]string
+	// reply holds the blocks of the reply call that passed the checks.
+	reply []block
 }
 
 // shortCard is a card as a list result shows it to the model.
