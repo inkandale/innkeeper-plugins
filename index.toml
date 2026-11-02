@@ -92,11 +92,11 @@ name = "forge-ai"
 title = "Forge"
 category = "AI"
 path = "forge-ai"
-version = "0.13.0"
+version = "0.14.0"
 protocol = 1
-capabilities = ["action", "records", "enrich", "settings"]
+capabilities = ["action", "records", "enrich", "settings", "ui"]
 uses = ["ai.chat", "ai.decide"]
-description = "An AI co-writer: drafts new cards, rewrites and tightens fields, adds greetings, examples, and lore, and rates cards. Needs the AI plugin set up with a chat model."
+description = "An AI co-writer: drafts new cards, rewrites and tightens fields, adds greetings, examples, and lore, and rates cards. Its AI Assistant chat finds cards in your library and edits the one open in the Forge. Needs the AI plugin set up with a chat model; the chat needs one with tool support."
 
 [[plugin]]
 name = "ai"
@@ -138,14 +138,3 @@ protocol = 1
 capabilities = ["enrich"]
 uses = ["ai.chat", "ai.embed"]
 description = "Finds similar cards and powers search by meaning: embeds each card, after a chat model sums up its premise if you pick one. Each change makes one embedding call, plus one chat call with a summary connection. Needs the AI plugin with an embedding model, and pgvector in PostgreSQL."
-
-[[plugin]]
-name = "card-advisor"
-title = "Card advisor"
-category = "AI"
-path = "card-advisor"
-version = "0.1.0"
-protocol = 1
-capabilities = ["ui"]
-uses = ["ai.chat"]
-description = "A chat in the corner of every page: describe the mood you want and get a shortlist from your library, with a reason for each pick. Needs the AI plugin set up with a chat model that supports tools."

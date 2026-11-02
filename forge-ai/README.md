@@ -2,8 +2,8 @@
 
 Writes, revises, tightens, expands, evaluates, and scores character cards,
 revises and evaluates lorebooks, and adds alternate greetings, example dialogue, and
-lorebook entries, with a language model. It offers the `action`, `records`, `enrich`, and `settings`
-capabilities, and calls `ai.chat` on the `ai` instance its `connection`
+lorebook entries, with a language model. It offers the `action`, `records`, `enrich`, `settings`, and `ui`
+capabilities; `ui` shows the [AI Assistant](#ai-assistant) panel. It calls `ai.chat` on the `ai` instance its `connection`
 setting names, so it needs a core with those and an `ai` instance that
 offers chat. Scoring can also call `ai.decide` on the instance its
 optional `decide` setting names.
@@ -151,6 +151,36 @@ The Prompts tab shows each block as its default.
 - The house style is added to every action's system prompt.
 - The whole-card guidance tells the planning call how to write each
   field's note.
+
+## AI Assistant
+
+A chat in the corner of every page. It finds cards in your library,
+compares them, and changes the card open in the Forge. It uses the AI
+connection on the General tab and the enabled skills.
+
+### Set up
+
+1. Pick an AI connection whose chat model supports tools. The chat finds
+   cards through tools, so a model without them can't answer.
+2. On this plugin's settings, turn on **Show AI Assistant** and **Library
+   access**. Without Library access it can't see your cards.
+3. Optional: turn on **Offer push** and **Offer add to collection** for
+   those buttons on its picks, and **Offer edits to the open card** to let it
+   change the card in the Forge. Each still waits for your confirm.
+
+Search by meaning needs the Similar cards plugin. Without it, the chat falls
+back to text search.
+
+### Editing a card
+
+With a card open in the Forge, the chat sees its draft, unsaved changes
+included, and follows the Revise instructions on the Prompts tab and the
+house style. A proposed change shows in the chat. **Send to Review** puts it
+in the Forge's Review tab, where you take or keep each field. Nothing
+reaches the library until you save.
+
+Conversations are kept per instance. **History** lists them by day, with a
+search box and a Delete button on each.
 
 ## Library access
 

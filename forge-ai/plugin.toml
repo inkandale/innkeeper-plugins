@@ -1,13 +1,19 @@
 name = "forge-ai"
 title = "Forge"
-version = "0.13.0"
+version = "0.14.0"
 protocol = 1
 command = ["./forge-ai"]
-capabilities = ["action", "records", "enrich", "settings"]
-description = "An AI co-writer: drafts new cards, rewrites and tightens fields, adds greetings, examples, and lore, and rates cards. Needs the AI plugin set up with a chat model."
+capabilities = ["action", "records", "enrich", "settings", "ui"]
+description = "An AI co-writer: drafts new cards, rewrites and tightens fields, adds greetings, examples, and lore, and rates cards. Its AI Assistant chat finds cards in your library and edits the one open in the Forge. Needs the AI plugin set up with a chat model; the chat needs one with tool support."
 category = "AI"
 uses = ["ai.chat", "ai.decide"]
 database = true
+
+[ui]
+title = "AI Assistant"
+entry = "ui/index.html"
+slot = "corner"
+permissions = ["library.read", "cards.push", "cards.collect", "cards.edit"]
 
 [config]
 type = "object"
@@ -18,7 +24,7 @@ type = "integer"
 title = "AI connection"
 format = "instance"
 x-offers = "ai.chat"
-description = "The AI connection whose chat model every action uses."
+description = "The AI connection whose chat model every action and the AI Assistant use. The AI Assistant needs tool support."
 
 [config.properties.decide]
 type = "integer"

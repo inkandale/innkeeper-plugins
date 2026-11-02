@@ -188,11 +188,11 @@ func TestTarballCarriesIcon(t *testing.T) {
 }
 
 func TestTarballCarriesTheUIFolder(t *testing.T) {
-	m, err := protocol.LoadManifest("../../card-advisor")
+	m, err := protocol.LoadManifest("../../forge-ai")
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, err := tarball("../..", "card-advisor", m, "linux", "amd64")
+	body, err := tarball("../..", "forge-ai", m, "linux", "amd64")
 	if err != nil {
 		t.Fatal(err)
 	}
