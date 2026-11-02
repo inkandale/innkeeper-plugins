@@ -1,0 +1,77 @@
+/* The system canvas colors keep the page dark before the host's theme arrives. */
+:root {
+  color-scheme: light dark;
+  --fallback-surface: color-mix(in srgb, CanvasText 6%, Canvas);
+  --fallback-border: color-mix(in srgb, CanvasText 25%, Canvas);
+  --fallback-muted: color-mix(in srgb, CanvasText 60%, Canvas);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex;
+  flex-direction: column;
+  font: var(--font-size, 14px) var(--font, system-ui, sans-serif);
+  background: var(--bg, Canvas);
+  color: var(--text, CanvasText);
+}
+#bar, #ask { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; align-items: center; }
+#bar label { font-size: 0.9em; color: var(--text-muted, var(--fallback-muted)); }
+#ask textarea { flex: 1 1 10em; min-width: 0; resize: none; }
+
+button, input, textarea {
+  font: inherit;
+  color: var(--text, CanvasText);
+  background: var(--surface, var(--fallback-surface));
+  border: 1px solid var(--border, var(--fallback-border));
+  border-radius: var(--radius, 6px);
+  padding: 6px 10px;
+}
+textarea, input[type="search"] { background: var(--bg, Canvas); }
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent, #4f46e5); }
+button:disabled { opacity: 0.5; cursor: default; }
+#send { background: var(--accent, #4f46e5); border-color: var(--accent, #4f46e5); color: var(--bg, Canvas); }
+:focus-visible { outline: 2px solid var(--accent, #4f46e5); outline-offset: 2px; }
+input[type="checkbox"] { accent-color: var(--accent, #4f46e5); padding: 0; }
+
+[hidden] { display: none !important; }
+#body { position: relative; flex: 1; min-height: 0; display: flex; }
+#log { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 8px; overflow-wrap: anywhere; }
+#drawer { position: absolute; inset: 0; overflow-y: auto; padding: 8px; background: var(--bg, Canvas); }
+#filter { width: 100%; margin-bottom: 8px; }
+#drawer h3 { margin: 12px 0 4px; font-size: 0.85em; color: var(--text-muted, var(--fallback-muted)); }
+#drawer .row { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+#drawer .row .title { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#drawer .row.current .title { border-color: var(--accent, #4f46e5); }
+#drawer .row small { color: var(--text-muted, var(--fallback-muted)); white-space: nowrap; }
+.delete.armed { border-color: var(--accent, #4f46e5); color: var(--accent, #4f46e5); }
+#editing { margin: 0; padding: 0 8px; font-size: 0.85em; color: var(--text-muted, var(--fallback-muted)); }
+
+/* A turn is the owner's message and the reply; turns sit further apart than the two inside one. */
+.message { margin: 0 0 6px; }
+.message.user {
+  margin: 18px 0 6px auto;
+  width: fit-content;
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #4f46e5) 18%, var(--bg, Canvas));
+  white-space: pre-wrap;
+}
+.message.user:first-child { margin-top: 0; }
+.message .who { font-size: 0.8em; color: var(--text-muted, var(--fallback-muted)); margin-bottom: 4px; }
+.message p { margin: 0 0 8px; }
+.message.streaming { white-space: pre-wrap; }
+.pick, .proposal { background: var(--surface, var(--fallback-surface)); border: 1px solid var(--border, var(--fallback-border)); border-radius: var(--radius, 6px); padding: 8px; margin-top: 8px; }
+.pick p { margin: 4px 0 8px; }
+.pick button, .proposal > button { margin: 0 6px 4px 0; }
+.table { overflow-x: auto; margin: 0 0 8px; }
+table { border-collapse: collapse; }
+th, td { border: 1px solid var(--border, var(--fallback-border)); padding: 4px 8px; text-align: left; vertical-align: top; }
+.field { margin: 8px 0; }
+.field-label { font-size: 0.85em; color: var(--text-muted, var(--fallback-muted)); }
+.field-text { white-space: pre-wrap; }
+.field-text.clamped { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+button.link { border: none; background: none; padding: 0; color: var(--accent, #4f46e5); text-decoration: underline; }
+button.primary { background: var(--accent, #4f46e5); border-color: var(--accent, #4f46e5); color: var(--bg, Canvas); }
+.notice, .hint { color: var(--text-muted, var(--fallback-muted)); }
