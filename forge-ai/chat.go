@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/inkandale/innkeeper-plugins/internal/pluginio"
 	"github.com/inkandale/innkeeper/protocol"
 )
 
-// maxToolRounds caps a run's requests to the model; the last offers no tools.
+// maxToolRounds caps a run's requests to the model; the last offers only the closing tool, or none.
 const maxToolRounds = 8
 
 // libraryTools are the core's read tools a library action may call. The
@@ -73,10 +74,41 @@ func coreLibrary(conn *protocol.Conn, run string) toolFunc {
 	}
 }
 
+// errToolsRejected is the model refusing tools on a run that can't end without them.
+var errToolsRejected = errors.New("the model refused the tools")
+
+// closer is a tool that ends a run. accept checks a call's arguments and
+// returns a complaint for the model, or "" to end the run.
+type closer struct {
+	tool   protocol.ChatTool
+	accept func(arguments string) string
+}
+
 // toolbox is the tools a run offers the model and what answers their calls.
+// With closing set, the run ends on that tool rather than on a reply
+// without tool calls.
 type toolbox struct {
-	tools []protocol.ChatTool
-	call  toolFunc
+	tools   []protocol.ChatTool
+	call    toolFunc
+	closing *closer
+}
+
+// offered is what a round offers: every tool before the last round, and in
+// the last only the closing tool, or none.
+func (b toolbox) offered(round int) []protocol.ChatTool {
+	switch {
+	case round < maxToolRounds && b.closing != nil:
+		return append(slices.Clone(b.tools), b.closing.tool)
+	case round < maxToolRounds:
+		return b.tools
+	case b.closing != nil:
+		return []protocol.ChatTool{b.closing.tool}
+	}
+	return nil
+}
+
+func (b toolbox) closes(c protocol.ToolCall) bool {
+	return b.closing != nil && c.Name == b.closing.tool.Name
 }
 
 // complete runs the conversation to the model's final answer, answering its
@@ -88,13 +120,12 @@ func (srv *server) complete(ctx context.Context, in *instance, run string, param
 		if err := ctx.Err(); err != nil {
 			return protocol.AIChatResult{}, err
 		}
-		// The last round offers no tools, so the model has to answer.
-		params.Tools = box.tools
-		if round == maxToolRounds {
-			params.Tools = nil
-		}
+		params.Tools = box.offered(round)
 		res, err := srv.chat(ctx, in, run, params, newProgress())
 		if err != nil && round == 1 && params.Tools != nil && rejected(err) {
+			if box.closing != nil {
+				return protocol.AIChatResult{}, fmt.Errorf("%w: %w", errToolsRejected, err)
+			}
 			// Most likely a model without tool support; the context and forced skills in the prompt still apply.
 			fmt.Fprintf(os.Stderr, "retrying without tools: %v\n", err)
 			box.tools, params.Tools = nil, nil
@@ -103,8 +134,13 @@ func (srv *server) complete(ctx context.Context, in *instance, run string, param
 		if err != nil || len(res.ToolCalls) == 0 || params.Tools == nil {
 			return res, err
 		}
-		params.Messages = append(params.Messages, protocol.ChatMessage{Role: "assistant", Content: res.Text, ToolCalls: res.ToolCalls})
+		// Reasoning stays out of the history the model reads back.
+		params.Messages = append(params.Messages, protocol.ChatMessage{Role: "assistant", Content: strings.TrimSpace(visible(res.Text)), ToolCalls: res.ToolCalls})
+		// Other tools go first, so the closing call can use what they found in the same round.
 		for _, c := range res.ToolCalls {
+			if box.closes(c) {
+				continue
+			}
 			result, err := box.call(ctx, c.Name, c.Arguments)
 			if err == nil {
 				err = ctx.Err()
@@ -113,6 +149,20 @@ func (srv *server) complete(ctx context.Context, in *instance, run string, param
 				return protocol.AIChatResult{}, fmt.Errorf("tool %s: %w", c.Name, err)
 			}
 			params.Messages = append(params.Messages, protocol.ChatMessage{Role: "tool", Content: result, ToolCallID: c.ID})
+		}
+		for _, c := range res.ToolCalls {
+			if !box.closes(c) {
+				continue
+			}
+			complaint := box.closing.accept(c.Arguments)
+			if complaint == "" {
+				return res, nil
+			}
+			params.Messages = append(params.Messages, protocol.ChatMessage{Role: "tool", Content: complaint, ToolCallID: c.ID})
+		}
+		// Only a run with a closing tool reaches its last round's end here.
+		if round >= maxToolRounds {
+			return res, nil
 		}
 	}
 }
