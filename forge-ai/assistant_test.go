@@ -156,6 +156,16 @@ func TestTurnAsksForToolSupportWhenToolsAreRefused(t *testing.T) {
 	}
 }
 
+func TestTurnNamesTheCauseWhenTheConnectionIsDown(t *testing.T) {
+	_, h := assistantHost(t, fakeReply{down: "dial tcp 127.0.0.1:1: connection refused"})
+	_, err := h.turn(t, turnInput{Text: "x", Library: 1})
+	var rpcErr *protocol.Error
+	want := "Couldn't reach the AI connection: dial tcp 127.0.0.1:1: connection refused"
+	if !errors.As(turnFailure(err), &rpcErr) || rpcErr.Code != protocol.CodeFailed || rpcErr.Message != want {
+		t.Fatalf("failure %v", turnFailure(err))
+	}
+}
+
 func TestTurnStopsWithoutLibraryAccess(t *testing.T) {
 	llm, h := assistantHost(t, toolCall("call_1", "search", `{"text":"x"}`), streamed("never asked"))
 	h.library = nil

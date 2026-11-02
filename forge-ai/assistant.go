@@ -181,6 +181,10 @@ func turnFailure(err error) error {
 	if errors.As(err, &rpcErr) && rpcErr.Code == protocol.CodeAIRejected {
 		return protocol.Fail(rpcErr.Message, false)
 	}
+	var chatErr chatError
+	if errors.As(err, &chatErr) && !errors.Is(err, context.Canceled) {
+		return protocol.Fail("Couldn't reach the AI connection: "+chatErr.Error(), true)
+	}
 	return err
 }
 

@@ -26,6 +26,7 @@ type fakeLLM struct {
 
 type fakeReply struct {
 	status int      // nonzero: refuse with -32010, as a model without tool support does
+	down   string   // nonempty: fail untyped with this text, as an unreachable connection does
 	deltas []string // the reply's text, streamed piece by piece
 	calls  []protocol.ToolCall
 }
@@ -70,6 +71,9 @@ func (f *fakeLLM) answer(conn *protocol.Conn, raw json.RawMessage) (any, error) 
 	f.mu.Unlock()
 	if hook != nil {
 		hook()
+	}
+	if reply.down != "" {
+		return nil, errors.New(reply.down)
 	}
 	if reply.status != 0 {
 		return nil, protocol.NewError(protocol.CodeAIRejected, "this model does not support tools", false)

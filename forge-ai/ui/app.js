@@ -1,4 +1,5 @@
 import { abort, ask, callPlugin } from "./bridge.js";
+import { askCopy } from "./copy.js";
 import { groupConversations } from "./history.js";
 import { blocks as markdownBlocks } from "./markdown.js";
 import { applyEvent, finishReply, newReply } from "./reply.js";
@@ -153,9 +154,14 @@ function showNotice(text, retry) {
 }
 
 function showHint() {
-  const hint = node("p", "hint", "Describe the card you want, such as a slow-burn rival, not too dark. Or open a card and ask for a change.");
+  const hint = node("p", "hint", askCopy(state.grants).hint);
   hint.id = "hint";
   el("log").replaceChildren(hint);
+}
+
+// Shows the streamed text, or a working line while the model has sent none.
+function showLive(live, text) {
+  keepAtBottom(() => live.replaceChildren(text || node("span", "hint", "Thinking…")));
 }
 
 function setBusy(busy) {
@@ -171,6 +177,7 @@ function applyContext(context) {
   state.library = context.library;
   state.grants = context.grants ?? [];
   state.draft = context.draft ?? null;
+  el("text").placeholder = askCopy(state.grants).placeholder;
   for (const [token, value] of Object.entries(context.theme ?? {})) document.documentElement.style.setProperty(token, value);
   const name = state.draft && typeof state.draft.data?.name === "string" && state.draft.data.name ? state.draft.data.name : "this card";
   el("editing").textContent = state.draft ? `Editing ${name}` : "";
@@ -195,13 +202,14 @@ async function send(text, isRetry = false) {
   try {
     await refreshContext();
     if (state.stopped) throw new Error("Stopped.");
+    showLive(live, "");
     keepAtBottom(() => log.append(live));
     const params = { conversation: state.conversation, text, library: state.library, all_libraries: el("all").checked };
     if (state.draft) params.draft = state.draft;
     const call = callPlugin("send", params, (event) => {
       reply = applyEvent(reply, event);
       state.conversation = reply.conversation;
-      keepAtBottom(() => (live.textContent = reply.text));
+      showLive(live, reply.text);
     });
     state.running = call.id;
     reply = finishReply(reply, await call.promise);

@@ -183,9 +183,17 @@ func (srv *server) chat(ctx context.Context, in *instance, run string, params pr
 	})
 	defer srv.deltas.Delete(params.Run)
 	var res protocol.AIChatResult
-	err := in.conn.Call(ctx, protocol.MethodAIChat, params, &res)
-	return res, err
+	if err := in.conn.Call(ctx, protocol.MethodAIChat, params, &res); err != nil {
+		return res, chatError{err}
+	}
+	return res, nil
 }
+
+// chatError is an ai.chat that failed, kept apart from a tool's failure in the same turn.
+type chatError struct{ err error }
+
+func (e chatError) Error() string { return e.err.Error() }
+func (e chatError) Unwrap() error { return e.err }
 
 // rejected reports a provider refusing the request as invalid.
 func rejected(err error) bool {
