@@ -233,9 +233,25 @@ func (srv *server) runTurn(ctx context.Context, in *instance, run string, input 
 	return turnResult{Blocks: []block{{Type: "text", Markdown: text}}}, nil
 }
 
-// systemPrompt is the turn's instructions.
+// systemPrompt is the turn's instructions. With a draft, they add the
+// revise action's instructions, the owner's override included, and the
+// draft's text fields.
 func (t *turn) systemPrompt(s settings) (string, error) {
-	return execute("assistant.system", promptData{})
+	var d promptData
+	if t.input.Draft != nil {
+		var err error
+		if d.Card, err = indented(t.editable); err != nil {
+			return "", err
+		}
+		if d.Instructions, err = instructions(s, "revise"); err != nil {
+			return "", err
+		}
+	}
+	system, err := execute("assistant.system", d)
+	if err != nil {
+		return "", err
+	}
+	return withHouseStyle(system, s), nil
 }
 
 // chatMessages is the system prompt, the recent history, and the owner's new text.

@@ -124,10 +124,7 @@ func (r *run) prompts(s settings) (system, user string, err error) {
 	if user, err = execute(r.ID+".user", d); err != nil {
 		return "", "", err
 	}
-	if hs := strings.TrimSpace(s.Prompts["house_style"]); hs != "" {
-		system += "\n\n## House style\n\n" + hs
-	}
-	return system, user, nil
+	return withHouseStyle(system, s), user, nil
 }
 
 // planPrompts renders the prompts for a whole-card run's plan.
@@ -152,10 +149,15 @@ func (r *run) planPrompts(s settings) (system, user string, err error) {
 	if user, err = execute("plan.user", d); err != nil {
 		return "", "", err
 	}
+	return withHouseStyle(system, s), user, nil
+}
+
+// withHouseStyle ends system with the owner's house style, if they set one.
+func withHouseStyle(system string, s settings) string {
 	if hs := strings.TrimSpace(s.Prompts["house_style"]); hs != "" {
-		system += "\n\n## House style\n\n" + hs
+		return system + "\n\n## House style\n\n" + hs
 	}
-	return system, user, nil
+	return system
 }
 
 // quoted is keys, each in double quotes, separated by commas.

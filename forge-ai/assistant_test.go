@@ -381,3 +381,36 @@ func TestTurnHidesReasoningInReplayedHistory(t *testing.T) {
 		t.Fatalf("replayed %q", got)
 	}
 }
+
+func TestTurnWithADraftGetsTheReviseRulesAndTheDraft(t *testing.T) {
+	llm, cfg := withLLM(t, streamed("Sure."))
+	cfg["prompts"].(map[string]any)["revise"] = "Keep it British."
+	h := startPlugin(t, cfg)
+	h.library = answering(library)
+	input := turnInput{Text: "shorter", Library: 1, Draft: &draft{Card: 7, Revision: 11,
+		Data: json.RawMessage(`{"name":"Ash","description":"A courier.","tags":["zeppelin"],"extensions":{"depth":"abyssal"}}`)}}
+	if _, err := h.turn(t, input); err != nil {
+		t.Fatal(err)
+	}
+	system := systemPrompt(llm.requests[0])
+	for _, want := range []string{"## The card in the Forge", "Keep it British.", `"description": "A courier."`,
+		"Change only what the owner asks for", "## House style\n\nNo em dashes."} {
+		if !strings.Contains(system, want) {
+			t.Errorf("system prompt lacks %q", want)
+		}
+	}
+	if strings.Contains(system, "zeppelin") || strings.Contains(system, "abyssal") {
+		t.Errorf("keys other than text fields reached the model:\n%s", system)
+	}
+}
+
+func TestTurnWithoutADraftSaysNoCardIsOpen(t *testing.T) {
+	llm, h := assistantHost(t, streamed("Sure."))
+	if _, err := h.turn(t, turnInput{Text: "x", Library: 1}); err != nil {
+		t.Fatal(err)
+	}
+	system := systemPrompt(llm.requests[0])
+	if !strings.Contains(system, "No card is open in the Forge") || strings.Contains(system, "## The card in the Forge") {
+		t.Fatalf("system prompt:\n%s", system)
+	}
+}
