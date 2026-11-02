@@ -15,8 +15,8 @@ var (
 	errSkillExists   = errors.New("a skill with that name exists")
 )
 
-// store keeps one instance's skills. The plugin's instances share its
-// schema, so every row belongs to an instance.
+// store keeps one instance's skills and AI Assistant conversations. The
+// plugin's instances share its schema, so every row belongs to an instance.
 type store struct {
 	pool     *pgxpool.Pool
 	instance string
@@ -28,24 +28,28 @@ func openStore(ctx context.Context, dsn, instance string) (*store, error) {
 		return nil, err
 	}
 	// The lock keeps the API and the worker, which start instances together,
-	// from racing to create the table.
+	// from racing to create the tables.
 	err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('forge-ai:' || current_schema()))`)
-		if err == nil {
-			_, err = tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS skill (
+		for _, stmt := range append([]string{
+			`SELECT pg_advisory_xact_lock(hashtext('forge-ai:' || current_schema()))`,
+			`CREATE TABLE IF NOT EXISTS skill (
 	instance text NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
 	body text NOT NULL,
 	files jsonb NOT NULL DEFAULT '{}',
 	enabled boolean NOT NULL DEFAULT true,
-	PRIMARY KEY (instance, name))`)
+	PRIMARY KEY (instance, name))`,
+		}, assistantTables...) {
+			if _, err := tx.Exec(ctx, stmt); err != nil {
+				return err
+			}
 		}
-		return err
+		return nil
 	})
 	if err != nil {
 		pool.Close()
-		return nil, fmt.Errorf("create skill table: %w", err)
+		return nil, fmt.Errorf("create tables: %w", err)
 	}
 	return &store{pool: pool, instance: instance}, nil
 }
