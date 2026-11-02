@@ -127,7 +127,9 @@ type host struct {
 	progress []protocol.Progress
 	calls    []protocol.LibraryCallParams
 	library  func(protocol.LibraryCallParams) (any, error)
-	srv      *server
+	// events holds each ui.event's data, in order.
+	events []string
+	srv    *server
 	// in is the instance initialize built, for tests that call the server directly.
 	in *instance
 }
@@ -180,6 +182,11 @@ func startWith(t *testing.T, params protocol.InitializeParams) *host {
 			var p protocol.Progress
 			_ = json.Unmarshal(params, &p)
 			h.progress = append(h.progress, p)
+			return nil, nil
+		case protocol.NotifyUIEvent:
+			var e protocol.UIEvent
+			_ = json.Unmarshal(params, &e)
+			h.events = append(h.events, string(e.Data))
 			return nil, nil
 		case protocol.MethodLibraryCall:
 			var p protocol.LibraryCallParams

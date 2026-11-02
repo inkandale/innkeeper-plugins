@@ -144,3 +144,16 @@ func startedItems(output, key string) int {
 	}
 	return 0
 }
+
+// withoutPartialTag holds back the end of s while it could still become a
+// think tag, so the tag's first pieces never reach the panel.
+func withoutPartialTag(s string) string {
+	for _, tag := range []string{"</think>", "<think>"} {
+		for n := len(tag) - 1; n > 0; n-- {
+			if strings.HasSuffix(s, tag[:n]) {
+				return s[:len(s)-n]
+			}
+		}
+	}
+	return s
+}

@@ -1,6 +1,7 @@
-// Command forge-ai is an action plugin. It writes, revises, tightens,
+// Command forge-ai is an action and ui plugin. It writes, revises, tightens,
 // evaluates, and scores character cards, and adds lorebook entries, with a
-// language model, through an ai instance's ai.chat.
+// language model, through an ai instance's ai.chat. Its AI Assistant panel
+// finds cards and proposes edits to the card open in the Forge.
 package main
 
 import (
@@ -80,6 +81,9 @@ func (srv *server) plugin() protocol.Plugin[instance] {
 			},
 			protocol.MethodEnrichRun: func(in *instance, ctx context.Context, params json.RawMessage) (any, error) {
 				return srv.enrich(ctx, in, params)
+			},
+			protocol.MethodUICall: func(in *instance, ctx context.Context, params json.RawMessage) (any, error) {
+				return srv.uiCall(ctx, in, params)
 			},
 			protocol.MethodRecordsList:   records(protocol.MethodRecordsList),
 			protocol.MethodRecordsGet:    records(protocol.MethodRecordsGet),
