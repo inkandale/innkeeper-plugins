@@ -7,9 +7,15 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/inkandale/innkeeper/protocol"
 )
+
+// minWords is the fewest words a card needs to get a vector. A near-empty
+// card's vector sits close to every other card's, so it shows up as similar
+// to cards it has nothing in common with.
+const minWords = 10
 
 // rawChars caps a card's own text sent to the embedding model; most read
 // fewer than 8,192 tokens.
@@ -81,6 +87,13 @@ func failAll(revs []protocol.EnrichRevision, err error) *protocol.EnrichRunResul
 // cardText is the text to embed for rev: its premise and themes when a
 // summary connection is set, written into values, else its own fields.
 func (s *settings) cardText(ctx context.Context, rev protocol.EnrichRevision, values map[string]json.RawMessage) (string, error) {
+	n, err := cardWords(rev.Data)
+	if err != nil {
+		return "", err
+	}
+	if n < minWords {
+		return "", fmt.Errorf("the card has %d words; it needs %d to get a vector", n, minWords)
+	}
 	if s.Summary == 0 {
 		return rawText(rev.Data)
 	}
@@ -94,6 +107,36 @@ func (s *settings) cardText(ctx context.Context, rev protocol.EnrichRevision, va
 	_ = json.Unmarshal(summary[premiseKey], &premise)
 	_ = json.Unmarshal(summary[themesKey], &themes)
 	return premise + "\n" + strings.Join(themes, ", "), nil
+}
+
+// cardWords counts the words in the fields in summaryFields. A word is a run
+// of letters and digits, or one Han or kana character, since Chinese and
+// Japanese don't put spaces between words.
+func cardWords(data json.RawMessage) (int, error) {
+	var card map[string]any
+	if err := json.Unmarshal(data, &card); err != nil {
+		return 0, fmt.Errorf("read card: %w", err)
+	}
+	n := 0
+	for _, f := range summaryFields {
+		v, _ := card[f].(string)
+		inWord := false
+		for _, r := range v {
+			switch {
+			case unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana):
+				n++
+				inWord = false
+			case unicode.IsLetter(r) || unicode.IsNumber(r):
+				if !inWord {
+					n++
+				}
+				inWord = true
+			default:
+				inWord = false
+			}
+		}
+	}
+	return n, nil
 }
 
 // rawText is the fields that say who the character is, leaving out

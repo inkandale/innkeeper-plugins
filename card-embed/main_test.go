@@ -109,7 +109,11 @@ func vectorOf(t *testing.T, r protocol.EnrichResult) protocol.VectorValue {
 	return v
 }
 
-const brakka = `{"name": "Brakka", "description": "A dwarf smith.", "first_mes": "Hm."}`
+// greeting gives a test card enough words for a vector. rawText leaves
+// first_mes out, so it doesn't change what gets embedded without a summary.
+const greeting = "Hm. You again. Fine, set the blade on the anvil and tell me what you broke this time, and be quick about it."
+
+const brakka = `{"name": "Brakka", "description": "A dwarf smith.", "first_mes": "` + greeting + `"}`
 
 func TestEmbedsTheCardsOwnFieldsWithoutASummaryConnection(t *testing.T) {
 	c := start(t, map[string]any{"embed_connection": embedID}, protocol.FeatureVectors)
@@ -180,7 +184,7 @@ func TestOffersVectorQuery(t *testing.T) {
 	}
 }
 
-func card(name string) string { return `{"name": "` + name + `"}` }
+func card(name string) string { return `{"name": "` + name + `", "first_mes": "` + greeting + `"}` }
 
 func TestARejectedTextFailsOnlyItsCard(t *testing.T) {
 	c := start(t, map[string]any{"embed_connection": embedID}, protocol.FeatureVectors)
@@ -225,6 +229,24 @@ func TestACardWhoseSummaryFailsIsSkippedMidBatch(t *testing.T) {
 	defer c.mu.Unlock()
 	if len(c.embeds) != 2 {
 		t.Fatalf("embedded %q", c.embeds)
+	}
+}
+
+func TestANearEmptyCardFailsBeforeAnySummary(t *testing.T) {
+	c := start(t, map[string]any{"embed_connection": embedID, "summary_connection": summaryID}, protocol.FeatureVectors)
+	rs := c.enrich(t, `{"name": "karina", "description": "b"}`, brakka).Results
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !strings.Contains(rs[0].Error, "has 1 words") || len(rs[0].Values) != 0 || rs[1].Error != "" || c.chats != 1 || len(c.embeds) != 1 {
+		t.Fatalf("results %+v, chats %d, embedded %q", rs, c.chats, c.embeds)
+	}
+}
+
+func TestCountsEachHanCharacterAsAWord(t *testing.T) {
+	c := start(t, map[string]any{"embed_connection": embedID}, protocol.FeatureVectors)
+	r := c.enrich(t, `{"name": "伊子", "description": "邻居阿姨，性格温柔贤惠。"}`).Results[0]
+	if r.Error != "" {
+		t.Fatalf("result %+v", r)
 	}
 }
 

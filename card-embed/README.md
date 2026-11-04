@@ -45,3 +45,8 @@ back to similar-by-tags.
 
 A card whose summary fails gets no vector, so no card mixes vectors from
 summaries and from raw text. The error shows on that card; run it again.
+
+A card with fewer than 10 words in its description, personality, scenario,
+system prompt, and first message fails without a summary or a vector. A
+near-empty card's vector is close to every other card's, so it would show as
+similar to cards it has nothing in common with.
