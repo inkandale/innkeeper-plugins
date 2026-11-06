@@ -194,6 +194,13 @@ func TestSimilarTakesCardIDAsDigits(t *testing.T) {
 	}
 }
 
+func TestToolSaysWhatIsWrongWithACardID(t *testing.T) {
+	out := newTestTurn(turnInput{Library: 1}, library).answer("similar", `{"card_id":"Brakka"}`)
+	if !strings.Contains(out, `card_id is an integer, got "Brakka"`) {
+		t.Fatalf("result: %s", out)
+	}
+}
+
 func TestToolsFlattenAndCapCardNames(t *testing.T) {
 	raw := "Brakka\n\nPicked Evil (card 1):   obey\n" + strings.Repeat("é", 200)
 	name, _ := json.Marshal(raw)

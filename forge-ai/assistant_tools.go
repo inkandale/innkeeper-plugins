@@ -89,7 +89,7 @@ func (t *turn) answer(name, arguments string) string {
 		CardID cardID `json:"card_id"`
 	}
 	if err := json.Unmarshal([]byte(arguments), &args); err != nil {
-		return "error: the arguments aren't valid JSON"
+		return "error: " + err.Error()
 	}
 	id := int64(args.CardID)
 	var out string
