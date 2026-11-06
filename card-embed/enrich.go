@@ -117,6 +117,11 @@ func cardWords(data json.RawMessage) (int, error) {
 	if err := json.Unmarshal(data, &card); err != nil {
 		return 0, fmt.Errorf("read card: %w", err)
 	}
+	if ext, ok := card["extensions"].(map[string]any); ok {
+		if dp, ok := ext["depth_prompt"].(map[string]any); ok {
+			card["depth_prompt"] = dp["prompt"]
+		}
+	}
 	n := 0
 	for _, f := range summaryFields {
 		v, _ := card[f].(string)

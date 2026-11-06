@@ -250,6 +250,14 @@ func TestCountsEachHanCharacterAsAWord(t *testing.T) {
 	}
 }
 
+func TestCountsTheDepthPromptsWords(t *testing.T) {
+	c := start(t, map[string]any{"embed_connection": embedID}, protocol.FeatureVectors)
+	r := c.enrich(t, `{"name": "Ann", "extensions": {"depth_prompt": {"prompt": "`+greeting+`"}}}`).Results[0]
+	if r.Error != "" {
+		t.Fatalf("result %+v", r)
+	}
+}
+
 func TestMissingEmbedConnectionFailsBeforeAnySummary(t *testing.T) {
 	c := start(t, map[string]any{"summary_connection": summaryID}, protocol.FeatureVectors)
 	res, err := callEnrich(c, brakka)
