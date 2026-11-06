@@ -86,22 +86,23 @@ type discovered struct {
 func (t *turn) answer(name, arguments string) string {
 	var args struct {
 		Text   string `json:"text"`
-		CardID int64  `json:"card_id"`
+		CardID cardID `json:"card_id"`
 	}
 	if err := json.Unmarshal([]byte(arguments), &args); err != nil {
 		return "error: the arguments aren't valid JSON"
 	}
+	id := int64(args.CardID)
 	var out string
 	var err error
 	switch name {
 	case "search":
 		out, err = t.search(args.Text)
 	case "similar":
-		out, err = t.similar(args.CardID)
+		out, err = t.similar(id)
 	case "related":
-		out, err = t.related(args.CardID)
+		out, err = t.related(id)
 	case "read_card":
-		out, err = t.readCard(args.CardID)
+		out, err = t.readCard(id)
 	default:
 		err = errors.New("no such tool")
 	}

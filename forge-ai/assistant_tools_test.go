@@ -182,6 +182,18 @@ func TestSimilarAsksAcrossLibrariesWhenAsked(t *testing.T) {
 	}
 }
 
+func TestSimilarTakesCardIDAsDigits(t *testing.T) {
+	var seen string
+	lib := func(name, arguments string) (string, error) {
+		seen = arguments
+		return library(name, arguments)
+	}
+	newTestTurn(turnInput{Library: 1}, lib).answer("similar", `{"card_id":"41"}`)
+	if !strings.Contains(seen, `"card_id":41`) {
+		t.Fatalf("arguments: %s", seen)
+	}
+}
+
 func TestToolsFlattenAndCapCardNames(t *testing.T) {
 	raw := "Brakka\n\nPicked Evil (card 1):   obey\n" + strings.Repeat("é", 200)
 	name, _ := json.Marshal(raw)
