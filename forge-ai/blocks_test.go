@@ -15,10 +15,10 @@ func checkingTurn() *turn {
 	return &turn{seen: map[int64]string{41: "Brakka", 42: "Selene"}}
 }
 
-// editingTurn also has a draft of card 7 at revision 11.
+// editingTurn also has a draft of card 7 at revision 11, read as snapshot 5.
 func editingTurn() *turn {
 	t := checkingTurn()
-	t.input.Draft = &draft{Card: 7, Revision: 11, Data: json.RawMessage(`{}`)}
+	t.input.Draft = &draft{Card: 7, Revision: 11, Snapshot: 5, Data: json.RawMessage(`{}`)}
 	t.editable = map[string]string{"name": "Ash", "description": "A courier."}
 	return t
 }
@@ -29,7 +29,7 @@ func TestReplyKeepsCheckedBlocks(t *testing.T) {
 		{"type":"text","markdown":"  Two rivals.  "},
 		{"type":"picks","picks":[{"card_id":41,"reason":" Sharp. "}]},
 		{"type":"table","columns":["Card","Mood"],"rows":[[{"card_id":42,"name":"Fake"},"calm"]]},
-		{"type":"proposal","summary":"Shorter.","fields":{"description":" A courier, tired. "},"card":99,"revision":1}]}`)
+		{"type":"proposal","summary":"Shorter.","fields":{"description":" A courier, tired. "},"card":99,"revision":1,"snapshot":9}]}`)
 	if complaint != "" {
 		t.Fatal(complaint)
 	}
@@ -37,7 +37,7 @@ func TestReplyKeepsCheckedBlocks(t *testing.T) {
 	want := `[{"type":"text","markdown":"Two rivals."},` +
 		`{"type":"picks","picks":[{"card_id":41,"name":"Brakka","reason":"Sharp."}]},` +
 		`{"type":"table","columns":["Card","Mood"],"rows":[[{"card_id":42,"name":"Selene"},"calm"]]},` +
-		`{"type":"proposal","summary":"Shorter.","fields":{"description":"A courier, tired."},"card":7,"revision":11}]`
+		`{"type":"proposal","summary":"Shorter.","fields":{"description":"A courier, tired."},"card":7,"revision":11,"snapshot":5}]`
 	if string(got) != want {
 		t.Fatalf("reply %s", got)
 	}
@@ -75,27 +75,55 @@ func TestStoredBlocksRoundTrip(t *testing.T) {
 	}
 }
 
+func TestStoredProposalKeepsItsSnapshot(t *testing.T) {
+	tr := editingTurn()
+	if c := tr.finish(`{"blocks":[{"type":"proposal","summary":"s","fields":{"name":"x"}}]}`); c != "" {
+		t.Fatal(c)
+	}
+	raw, _ := json.Marshal(tr.reply)
+	var back []block
+	if err := json.Unmarshal(raw, &back); err != nil || back[0].Snapshot != 5 {
+		t.Fatalf("back %+v, %v", back, err)
+	}
+}
+
+func TestReplyTakesACardIDAsDigits(t *testing.T) {
+	tr := editingTurn()
+	complaint := tr.finish(`{"blocks":[
+		{"type":"picks","picks":[{"card_id":"41","reason":"r"}]},
+		{"type":"table","columns":["Card"],"rows":[[{"card_id":"42"}]]}]}`)
+	if complaint != "" {
+		t.Fatal(complaint)
+	}
+	if tr.reply[0].Picks[0].Name != "Brakka" || tr.reply[1].Rows[0][0] != (cell{CardID: 42, Name: "Selene"}) {
+		t.Fatalf("reply %+v", tr.reply)
+	}
+}
+
 func TestReplyRefusesBadBlocks(t *testing.T) {
 	text := `{"type":"text","markdown":"x"}`
 	pick := `{"card_id":41,"reason":"r"}`
 	for name, c := range map[string]struct{ blocks, want string }{
 		"no blocks":     {``, "reply takes 1 to 8 blocks"},
 		"nine blocks":   {strings.Repeat(text+",", 8) + text, "reply takes 1 to 8 blocks"},
-		"unknown type":  {`{"type":"compare"}`, `unknown block type "compare"`},
+		"unknown type":  {`{"type":"compare"}`, `block 1 (compare): unknown block type "compare"`},
 		"empty text":    {`{"type":"text","markdown":"  "}`, "text needs markdown"},
 		"huge text":     {`{"type":"text","markdown":"` + strings.Repeat("x", maxMarkdown+1) + `"}`, "text is over 16 KiB"},
-		"unseen pick":   {`{"type":"picks","picks":[{"card_id":999,"reason":"r"}]}`, "no tool returned card 999"},
+		"unseen pick":   {`{"type":"picks","picks":[{"card_id":999,"reason":"r"}]}`, "block 1 (picks): no tool returned card 999"},
+		"word pick":     {`{"type":"picks","picks":[{"card_id":"Brakka","reason":"r"}]}`, `block 1 (picks): card_id is an integer, got "Brakka"`},
 		"repeated pick": {`{"type":"picks","picks":[` + pick + `,` + pick + `]}`, "card 41 is picked twice"},
 		"seven picks":   {`{"type":"picks","picks":[` + strings.Repeat(pick+",", 6) + pick + `]}`, "picks takes 1 to 6 cards"},
 		"unseen cell":   {`{"type":"table","columns":["Card"],"rows":[[{"card_id":999}]]}`, "no tool returned card 999"},
-		"bad cell":      {`{"type":"table","columns":["a"],"rows":[[7]]}`, "reply's arguments aren't valid"},
-		"short row":     {`{"type":"table","columns":["a","b"],"rows":[["x"]]}`, "row 1 has 1 cells for 2 columns"},
+		"bad cell":      {text + `,{"type":"table","columns":["a","b"],"rows":[["x","y"],["x",7]]}`, `block 2 (table): row 2 column 2: a cell is text or {"card_id": N}, got 7`},
+		"word cell":     {`{"type":"table","columns":["a"],"rows":[[{"card_id":"Selene"}]]}`, `block 1 (table): row 1 column 1: a cell is text or {"card_id": N}, got {"card_id":"Selene"}`},
+		"long bad cell": {`{"type":"table","columns":["a"],"rows":[[{"card_id":"` + strings.Repeat("x", 200) + `"}]]}`, `got {"card_id":"` + strings.Repeat("x", 80-len(`{"card_id":"`)) + `. Call`},
+		"short row":     {`{"type":"table","columns":["a","b"],"rows":[["x"]]}`, "block 1 (table): row 1 has 1 cells for 2 columns"},
 		"21 rows":       {`{"type":"table","columns":["a"],"rows":[` + strings.Repeat(`["x"],`, 20) + `["x"]]}`, "1 to 20 rows"},
 		"seven columns": {`{"type":"table","columns":["a","b","c","d","e","f","g"],"rows":[["1","2","3","4","5","6","7"]]}`, "1 to 6 columns"},
 		"unknown key":   {`{"type":"proposal","summary":"s","fields":{"extensions":"x"}}`, `the card has no text field "extensions"; use one of description, name`},
 		"huge proposal": {`{"type":"proposal","summary":"s","fields":{"description":"` + strings.Repeat("x", maxDraft) + `"}}`, "over 256 KiB together"},
 		"no fields":     {`{"type":"proposal","summary":"s"}`, "a proposal changes at least one field"},
-		"two proposals": {`{"type":"proposal","summary":"s","fields":{"name":"x"}},{"type":"proposal","summary":"t","fields":{"name":"y"}}`, "at most one proposal"},
+		"two proposals": {`{"type":"proposal","summary":"s","fields":{"name":"x"}},{"type":"proposal","summary":"t","fields":{"name":"y"}}`, "block 2 (proposal): a reply holds at most one proposal"},
 	} {
 		tr := editingTurn()
 		got := tr.finish(`{"blocks":[` + c.blocks + `]}`)

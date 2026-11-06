@@ -13,3 +13,6 @@ export function applyEvent(reply, event) {
 
 /** finishReply swaps in the final result: a reply's blocks are never streamed, so they only arrive here. */
 export const finishReply = (_reply, result) => ({ text: "", conversation: result.conversation, blocks: result.blocks ?? [] });
+
+/** proposeParams is Send to Review's request for a proposal block; one saved before snapshots sends none, and Review falls back to its revision. */
+export const proposeParams = (p) => ({ revision: p.revision, ...(p.snapshot ? { snapshot: p.snapshot } : {}), proposal: p.fields });

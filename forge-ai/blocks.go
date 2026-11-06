@@ -22,11 +22,30 @@ const (
 	maxMarkdown = 16 << 10
 	// maxDraft caps the draft a turn takes, as the core caps a proposal.
 	maxDraft = 256 << 10
+	// maxEcho caps the input a complaint quotes back to the model.
+	maxEcho = 80
 )
+
+// cardID is a card ID from the model: a JSON integer, or a string of
+// decimal digits, which some models send instead.
+type cardID int64
+
+func (id *cardID) UnmarshalJSON(b []byte) error {
+	var digits string
+	if json.Unmarshal(b, &digits) == nil && digits != "" && strings.Trim(digits, "0123456789") == "" {
+		b = []byte(digits)
+	}
+	var n int64
+	if err := json.Unmarshal(b, &n); err != nil {
+		return fmt.Errorf("card_id is an integer, got %s", oneLine(string(b), maxEcho))
+	}
+	*id = cardID(n)
+	return nil
+}
 
 // pick is one recommended card. The server fills in its name.
 type pick struct {
-	CardID int64  `json:"card_id"`
+	CardID cardID `json:"card_id"`
 	Name   string `json:"name"`
 	Reason string `json:"reason"`
 }
@@ -34,8 +53,10 @@ type pick struct {
 // cell is one table cell: text, or a card the turn's tools returned.
 type cell struct {
 	Text   string
-	CardID int64
+	CardID cardID
 	Name   string
+	// invalid is a cell that is neither, kept so the check can say where it is.
+	invalid string
 }
 
 func (c cell) MarshalJSON() ([]byte, error) {
@@ -43,7 +64,7 @@ func (c cell) MarshalJSON() ([]byte, error) {
 		return json.Marshal(c.Text)
 	}
 	return json.Marshal(struct {
-		CardID int64  `json:"card_id"`
+		CardID cardID `json:"card_id"`
 		Name   string `json:"name"`
 	}{c.CardID, c.Name})
 }
@@ -53,11 +74,12 @@ func (c *cell) UnmarshalJSON(b []byte) error {
 		return json.Unmarshal(b, &c.Text)
 	}
 	var ref struct {
-		CardID int64  `json:"card_id"`
+		CardID cardID `json:"card_id"`
 		Name   string `json:"name"`
 	}
 	if err := json.Unmarshal(b, &ref); err != nil || ref.CardID <= 0 {
-		return errors.New(`a cell is text or {"card_id": N}`)
+		c.invalid = string(b)
+		return nil
 	}
 	c.CardID, c.Name = ref.CardID, ref.Name
 	return nil
@@ -73,15 +95,18 @@ type block struct {
 	Rows     [][]cell          `json:"rows,omitempty"`
 	Summary  string            `json:"summary,omitempty"`
 	Fields   map[string]string `json:"fields,omitempty"`
-	// Card and Revision are the draft a proposal changes, set by the server.
+	// Card, Revision, and Snapshot are the draft a proposal changes, set by the server.
 	Card     int64 `json:"card,omitempty"`
 	Revision int64 `json:"revision,omitempty"`
+	Snapshot int64 `json:"snapshot,omitempty"`
 }
 
-// draft is the card open in the Forge, as the panel sent it.
+// draft is the card open in the Forge, as the panel sent it. Snapshot is
+// the host's ID for that read, which Review starts from.
 type draft struct {
 	Card     int64           `json:"card"`
 	Revision int64           `json:"revision"`
+	Snapshot int64           `json:"snapshot,omitempty"`
 	Data     json.RawMessage `json:"data"`
 }
 
@@ -146,7 +171,7 @@ func newTurn(input turnInput, library func(name, arguments string) (string, erro
 // once the blocks pass and are kept in t.reply.
 func (t *turn) finish(arguments string) string {
 	var args struct {
-		Blocks []block `json:"blocks"`
+		Blocks []json.RawMessage `json:"blocks"`
 	}
 	if err := json.Unmarshal([]byte(arguments), &args); err != nil {
 		return "error: reply's arguments aren't valid: " + err.Error()
@@ -161,20 +186,32 @@ func (t *turn) finish(arguments string) string {
 
 // check returns the blocks as the panel may show them, built anew from
 // what each type allows.
-func (t *turn) check(in []block) ([]block, error) {
+func (t *turn) check(in []json.RawMessage) ([]block, error) {
 	if len(in) == 0 || len(in) > maxBlocks {
 		return nil, fmt.Errorf("reply takes 1 to %d blocks", maxBlocks)
 	}
 	out := make([]block, 0, len(in))
-	for i, b := range in {
-		checked, err := t.checkBlock(b)
+	for i, raw := range in {
+		// Decoded apart from the rest, so a block that fails to decode is still named by its type.
+		var head struct {
+			Type string `json:"type"`
+		}
+		_ = json.Unmarshal(raw, &head)
+		var b block
+		err := json.Unmarshal(raw, &b)
+		if err == nil {
+			b, err = t.checkBlock(b)
+		}
+		if err == nil && b.Type == "proposal" && slices.ContainsFunc(out, func(o block) bool { return o.Type == "proposal" }) {
+			err = errors.New("a reply holds at most one proposal")
+		}
 		if err != nil {
-			return nil, fmt.Errorf("block %d: %w", i+1, err)
+			if head.Type == "" {
+				return nil, fmt.Errorf("block %d: %w", i+1, err)
+			}
+			return nil, fmt.Errorf("block %d (%s): %w", i+1, head.Type, err)
 		}
-		if checked.Type == "proposal" && slices.ContainsFunc(out, func(o block) bool { return o.Type == "proposal" }) {
-			return nil, errors.New("a reply holds at most one proposal")
-		}
-		out = append(out, checked)
+		out = append(out, b)
 	}
 	return out, nil
 }
@@ -236,6 +273,9 @@ func (t *turn) checkTable(columns []string, rows [][]cell) (block, error) {
 		}
 		body[i] = make([]cell, len(r))
 		for j, c := range r {
+			if c.invalid != "" {
+				return block{}, fmt.Errorf(`row %d column %d: a cell is text or {"card_id": N}, got %s`, i+1, j+1, oneLine(c.invalid, maxEcho))
+			}
 			if c.CardID == 0 {
 				body[i][j].Text = oneLine(c.Text, maxLine)
 				continue
@@ -274,11 +314,11 @@ func (t *turn) checkProposal(summary string, fields map[string]string) (block, e
 	if size > maxDraft {
 		return block{}, fmt.Errorf("the proposal's fields are over %d KiB together; change less at once", maxDraft>>10)
 	}
-	return block{Type: "proposal", Summary: oneLine(summary, maxLine), Fields: out, Card: t.input.Draft.Card, Revision: t.input.Draft.Revision}, nil
+	return block{Type: "proposal", Summary: oneLine(summary, maxLine), Fields: out, Card: t.input.Draft.Card, Revision: t.input.Draft.Revision, Snapshot: t.input.Draft.Snapshot}, nil
 }
 
-func (t *turn) cardName(id int64) (string, error) {
-	if name, ok := t.seen[id]; ok {
+func (t *turn) cardName(id cardID) (string, error) {
+	if name, ok := t.seen[int64(id)]; ok {
 		return name, nil
 	}
 	return "", fmt.Errorf("no tool returned card %d in this turn; search, then use cards from the results", id)

@@ -2,7 +2,7 @@ import { abort, ask, callPlugin } from "./bridge.js";
 import { askCopy } from "./copy.js";
 import { groupConversations } from "./history.js";
 import { blocks as markdownBlocks } from "./markdown.js";
-import { applyEvent, finishReply, newReply } from "./reply.js";
+import { applyEvent, finishReply, newReply, proposeParams } from "./reply.js";
 
 const el = (id) => document.getElementById(id);
 const state = { conversation: 0, conversations: [], library: 0, grants: [], draft: null, running: null, stopped: false, ready: false };
@@ -109,7 +109,7 @@ function showProposal(parent, proposal) {
     }
     box.append(field);
   }
-  box.append(button("Send to Review", request("propose", proposal.card, { revision: proposal.revision, proposal: proposal.fields }), "primary"));
+  box.append(button("Send to Review", request("propose", proposal.card, proposeParams(proposal)), "primary"));
   parent.append(box);
 }
 
