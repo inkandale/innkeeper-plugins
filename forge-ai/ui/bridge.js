@@ -1,10 +1,12 @@
 // The panel's only door to the page: one postMessage request per call, matched to its reply by id.
 let nextId = 1;
 const pending = new Map();
+let noticeHandler;
 
 addEventListener("message", (e) => {
   if (e.source !== parent) return;
-  const { id, event, result, error } = e.data ?? {};
+  const { id, notice, event, result, error } = e.data ?? {};
+  if (id === undefined && typeof notice === "string") return noticeHandler?.(notice);
   const call = pending.get(id);
   if (!call) return;
   if (event !== undefined) return call.onEvent?.(event);
@@ -20,6 +22,9 @@ export function ask(message, onEvent) {
   parent.postMessage({ id, ...message }, "*");
   return { id, promise };
 }
+
+/** onNotice calls fn with the name of each notice the page sends unasked, such as "context". */
+export const onNotice = (fn) => (noticeHandler = fn);
 
 export const callPlugin = (method, params, onEvent) => ask({ call: "ui.call", method, params }, onEvent);
 export const abort = (id) => parent.postMessage({ id, call: "ui.abort" }, "*");

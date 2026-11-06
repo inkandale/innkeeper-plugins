@@ -1,4 +1,4 @@
-import { abort, ask, callPlugin } from "./bridge.js";
+import { abort, ask, callPlugin, onNotice } from "./bridge.js";
 import { askCopy } from "./copy.js";
 import { groupConversations } from "./history.js";
 import { blocks as markdownBlocks } from "./markdown.js";
@@ -313,8 +313,8 @@ function onStop() {
 
 el("send").addEventListener("click", submit);
 el("text").addEventListener("keydown", onKeydown);
-// The owner may have opened another card since the last turn, which the Editing line should show.
-el("text").addEventListener("focus", () => void refreshContext().catch(() => {}));
+// The page sends this when the owner opens another card or closes the Forge, which the Editing line should show.
+onNotice((name) => name === "context" && void refreshContext().catch(() => {}));
 el("stop").addEventListener("click", onStop);
 el("new").addEventListener("click", guarded(async () => {
   toggleHistory(false);
