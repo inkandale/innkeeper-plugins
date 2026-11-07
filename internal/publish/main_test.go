@@ -209,3 +209,23 @@ func TestTarballCarriesTheUIFolder(t *testing.T) {
 		t.Fatalf("tarball holds %v", names)
 	}
 }
+
+func TestFinishIndexKeepsProtocolVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "index.toml")
+	published := "[[plugin]]\nname = \"password-login\"\nversion = \"0.1.0\"\nprotocol = 1\nprotocol_version = \"1.1\"\n"
+	if err := os.WriteFile(path, []byte(published), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := finishIndex("../..", path); err != nil {
+		t.Fatal(err)
+	}
+	var index struct {
+		Plugin []entry `toml:"plugin"`
+	}
+	if _, err := toml.DecodeFile(path, &index); err != nil {
+		t.Fatal(err)
+	}
+	if got := index.Plugin[0].ProtocolVersion; got != "1.1" {
+		t.Fatalf("protocol_version = %q, want 1.1", got)
+	}
+}

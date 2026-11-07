@@ -43,8 +43,11 @@ Start from the plugin closest to yours:
 
 1. A folder whose `plugin.toml` has `command = ["./<folder>"]`.
 2. An `index.toml` entry with `path = "<folder>"` and the same name,
-   version, protocol, capabilities, description, and category as
-   `plugin.toml`. `go run ./internal/indexcheck` checks they match.
+   version, protocol, protocol_version, capabilities, description, and
+   category as `plugin.toml`. `go run ./internal/indexcheck` checks they
+   match. Set `protocol_version` to the newest protocol minor whose
+   features the plugin uses, from the version table in the core's
+   `docs/protocol.md`; leave it out for `1.0`.
 3. The built binary, `/<folder>/<folder>`, in `.gitignore`.
 4. An icon, if you want one: a file in the folder named by `icon` in
    `plugin.toml`. `make install` copies `icon.*`.

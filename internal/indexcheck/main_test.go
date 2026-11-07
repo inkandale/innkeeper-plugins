@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/inkandale/innkeeper/protocol"
 )
 
 func TestRepoIndex(t *testing.T) {
@@ -97,5 +99,42 @@ func TestCheckRejectsMismatchedDescriptionCategoryAndTitle(t *testing.T) {
 				t.Fatalf("want one error naming %s, got %v", field, errs)
 			}
 		})
+	}
+}
+
+func TestCheckRejectsAMismatchedProtocolVersion(t *testing.T) {
+	root := t.TempDir()
+	manifest := "name = \"a\"\nversion = \"1.0.0\"\nprotocol = 1\ncommand = [\"./a\"]\ncapabilities = [\"push\"]\ndescription = \"d\"\n"
+	index := "[[plugin]]\nname = \"a\"\npath = \"a\"\nversion = \"1.0.0\"\nprotocol = 1\nprotocol_version = \"1.1\"\ncapabilities = [\"push\"]\ndescription = \"d\"\n"
+	if err := os.MkdirAll(filepath.Join(root, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range map[string]string{"a/plugin.toml": manifest, "index.toml": index} {
+		if err := os.WriteFile(filepath.Join(root, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	errs := check(root)
+	if len(errs) != 1 || !strings.Contains(errs[0].Error(), `index protocol_version "1.1"; plugin.toml has ""`) {
+		t.Fatalf("want one protocol_version mismatch, got %v", errs)
+	}
+}
+
+func TestCheckRejectsAProtocolAboveThePinnedCore(t *testing.T) {
+	root := t.TempDir()
+	next := fmt.Sprintf("%d.%d", protocol.Version, protocol.Minor+1)
+	manifest := "name = \"a\"\nversion = \"1.0.0\"\nprotocol = 1\nprotocol_version = \"" + next + "\"\ncommand = [\"./a\"]\ncapabilities = [\"push\"]\ndescription = \"d\"\n"
+	index := "[[plugin]]\nname = \"a\"\npath = \"a\"\nversion = \"1.0.0\"\nprotocol = 1\nprotocol_version = \"" + next + "\"\ncapabilities = [\"push\"]\ndescription = \"d\"\n"
+	if err := os.MkdirAll(filepath.Join(root, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range map[string]string{"a/plugin.toml": manifest, "index.toml": index} {
+		if err := os.WriteFile(filepath.Join(root, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	errs := check(root)
+	if len(errs) != 1 || !strings.Contains(errs[0].Error(), "needs protocol "+next) {
+		t.Fatalf("want one error saying a needs protocol %s, got %v", next, errs)
 	}
 }

@@ -15,16 +15,18 @@ import (
 )
 
 type entry struct {
-	Name         string   `toml:"name"`
-	Title        string   `toml:"title"`
-	Path         string   `toml:"path"`
-	Category     string   `toml:"category"`
-	Recommended  bool     `toml:"recommended"`
-	Version      string   `toml:"version"`
-	Protocol     int      `toml:"protocol"`
-	Capabilities []string `toml:"capabilities"`
-	Description  string   `toml:"description"`
-	Uses         []string `toml:"uses"`
+	Name        string `toml:"name"`
+	Title       string `toml:"title"`
+	Path        string `toml:"path"`
+	Category    string `toml:"category"`
+	Recommended bool   `toml:"recommended"`
+	Version     string `toml:"version"`
+	Protocol    int    `toml:"protocol"`
+	// ProtocolVersion must match plugin.toml's; LoadManifest refuses one above the pinned core's protocol.Minor.
+	ProtocolVersion string   `toml:"protocol_version"`
+	Capabilities    []string `toml:"capabilities"`
+	Description     string   `toml:"description"`
+	Uses            []string `toml:"uses"`
 }
 
 func main() {
@@ -74,10 +76,13 @@ func check(root string) []error {
 			errs = append(errs, fmt.Errorf("%s: index title %q, description %q, category %q; plugin.toml has %q, %q, %q",
 				e.Path, e.Title, e.Description, e.Category, m.Title, m.Description, m.Category))
 		}
+		if e.ProtocolVersion != m.ProtocolVersion {
+			errs = append(errs, fmt.Errorf("%s: index protocol_version %q; plugin.toml has %q", e.Path, e.ProtocolVersion, m.ProtocolVersion))
+		}
 		if !slices.Equal(e.Uses, m.Uses) {
 			errs = append(errs, fmt.Errorf("%s: index uses %v; plugin.toml has %v", e.Path, e.Uses, m.Uses))
 		}
-		if !slices.Equal(m.Command,[]string{"./" + e.Path}) {
+		if !slices.Equal(m.Command, []string{"./" + e.Path}) {
 			errs = append(errs, fmt.Errorf("%s: command must be [\"./%s\"], where make build writes the binary", e.Path, e.Path))
 		}
 		if e.Description == "" {

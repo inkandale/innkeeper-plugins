@@ -45,19 +45,21 @@ type artifact struct {
 // entry is one plugin version in the published index, the format the core's
 // plugin sources read.
 type entry struct {
-	Name         string     `toml:"name"`
-	Title        string     `toml:"title,omitempty"`
-	Path         string     `toml:"path,omitempty"`
-	Category     string     `toml:"category,omitempty"`
-	Recommended  bool       `toml:"recommended,omitempty"`
-	Version      string     `toml:"version"`
-	Released     string     `toml:"released,omitempty"`
-	Notes        string     `toml:"notes,omitempty"`
-	Protocol     int        `toml:"protocol"`
-	Capabilities []string   `toml:"capabilities"`
-	Description  string     `toml:"description"`
-	Uses         []string   `toml:"uses,omitempty"`
-	Artifact     []artifact `toml:"artifact,omitempty"`
+	Name        string `toml:"name"`
+	Title       string `toml:"title,omitempty"`
+	Path        string `toml:"path,omitempty"`
+	Category    string `toml:"category,omitempty"`
+	Recommended bool   `toml:"recommended,omitempty"`
+	Version     string `toml:"version"`
+	Released    string `toml:"released,omitempty"`
+	Notes       string `toml:"notes,omitempty"`
+	Protocol    int    `toml:"protocol"`
+	// ProtocolVersion is copied as-is, since core requires the tarball's manifest to match it.
+	ProtocolVersion string     `toml:"protocol_version,omitempty"`
+	Capabilities    []string   `toml:"capabilities"`
+	Description     string     `toml:"description"`
+	Uses            []string   `toml:"uses,omitempty"`
+	Artifact        []artifact `toml:"artifact,omitempty"`
 }
 
 func main() {
