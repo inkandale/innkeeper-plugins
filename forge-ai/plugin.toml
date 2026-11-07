@@ -1,7 +1,8 @@
 name = "forge-ai"
 title = "Forge"
-version = "0.14.0"
+version = "0.14.1"
 protocol = 1
+protocol_version = "1.1"
 command = ["./forge-ai"]
 capabilities = ["action", "records", "enrich", "settings", "ui"]
 description = "An AI co-writer: drafts new cards, rewrites and tightens fields, adds greetings, examples, and lore, and rates cards. Its AI Assistant chat finds cards in your library and edits the one open in the Forge. Needs the AI plugin set up with a chat model; the chat needs one with tool support."
