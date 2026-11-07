@@ -127,6 +127,7 @@ category = "Advanced"
 path = "crucible"
 version = "0.3.0"
 protocol = 1
+protocol_version = "1.2"
 capabilities = ["enrich"]
 description = "Rates cards with a crucible scoring service you run yourself: quality, rating, card type, content flags, and suggestions. Only useful if you have a crucible server."
 
