@@ -74,7 +74,8 @@ var checks = []struct {
 		return wordCount(first) >= f.settings.RepeatWords && strings.Contains(normalize(f.card.FirstMessage), normalize(first))
 	}},
 	{"placeholder", 15, func(f facts) bool { return slices.ContainsFunc(f.card.all(), f.hasPlaceholder) }},
-	{"no_char_macro", 10, func(f facts) bool {
+	// Listed, but free: it fires on many good cards.
+	{"no_char_macro", 0, func(f facts) bool {
 		names := func(t string) bool {
 			t = strings.ToLower(t)
 			return strings.Contains(t, "{{char}}") || !blank(f.card.Name) && strings.Contains(t, strings.ToLower(strings.TrimSpace(f.card.Name)))

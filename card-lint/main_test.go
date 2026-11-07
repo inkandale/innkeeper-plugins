@@ -102,7 +102,7 @@ func TestEachCheckListsItsCodeAndTakesItsPoints(t *testing.T) {
 		"no_char_macro": {func(c map[string]string) {
 			c["description"] = englishText
 			c["first_mes"] = "\"You are dripping on the floor.\""
-		}, 10},
+		}, 0},
 		"markup":   {func(c map[string]string) { c["personality"] = "<div style=\"color:red\">Patient and dry.</div>" }, 10},
 		"mojibake": {func(c map[string]string) { c["personality"] = "Patient, dry, and fond of cafÃ© regulars." }, 10},
 	}
