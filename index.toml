@@ -64,6 +64,7 @@ category = "Advanced"
 path = "chub-archive"
 version = "0.3.4"
 protocol = 1
+protocol_version = "1.2"
 capabilities = ["import"]
 description = "For the full chub.ai archive download: loads every card in it, with each version, into a library. Needs the archive extracted and mounted on the server."
 

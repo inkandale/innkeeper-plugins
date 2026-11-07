@@ -2,6 +2,7 @@ name = "chub-archive"
 title = "Chub archive"
 version = "0.3.4"
 protocol = 1
+protocol_version = "1.2"
 command = ["./chub-archive"]
 capabilities = ["import"]
 bulk = true
@@ -19,7 +20,7 @@ description = "The archive's hashed-data folders, such as /archive/sql/hashed-da
 items = { type = "string" }
 
 [enrichments]
-rating = { type = "score", range = [0, 5], label = "Chub rating", grid = true }
-topics = { type = "list", label = "Chub topics" }
+rating = { type = "score", range = [0, 5], label = "Chub rating", grid = true, browse = true, section = "popularity" }
+topics = { type = "list", label = "Chub topics", browse = true, section = "kind" }
 site = { type = "text", label = "Archive site" }
 hidden = { type = "text", label = "Hidden on its site" }
