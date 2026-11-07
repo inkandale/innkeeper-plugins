@@ -116,6 +116,7 @@ category = "Quality"
 path = "card-lint"
 version = "0.4.4"
 protocol = 1
+protocol_version = "1.2"
 capabilities = ["enrich"]
 description = "Free, instant checks on every card, no AI needed: missing fields, too short or too long, repeated text, leftover placeholders, garbled text, and language. Scores new cards as they're imported; run it from the selection bar for cards already in the library."
 

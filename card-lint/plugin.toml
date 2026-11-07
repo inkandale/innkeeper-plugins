@@ -2,6 +2,7 @@ name = "card-lint"
 title = "Card lint"
 version = "0.4.4"
 protocol = 1
+protocol_version = "1.2"
 command = ["./card-lint"]
 capabilities = ["enrich"]
 # Lint makes no model calls, so one run can cover a whole archive.
@@ -21,7 +22,7 @@ repeat_words = { type = "integer", title = "Repeated text from", minimum = 5, de
 placeholders = { type = "array", title = "Placeholders", items = { type = "string" }, default = ["<BOT>", "<USER>", "{char}", "{user}", "[name]", "[character]"], description = "Leftover template text, matched in any case." }
 
 [enrichments]
-lint = { type = "score", range = [0, 100], label = "Lint", grid = true, priority = 100 }
+lint = { type = "score", range = [0, 100], label = "Lint", grid = true, priority = 100, browse = true, section = "score" }
 tokens = { type = "score", range = [0, 1000000], label = "Always-on tokens" }
-problems = { type = "list", label = "Problems" }
-language = { type = "text", label = "Language" }
+problems = { type = "list", label = "Problems", browse = true, section = "problems" }
+language = { type = "text", label = "Language", browse = true, section = "kind" }
