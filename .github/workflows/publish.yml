@@ -33,7 +33,7 @@ jobs:
         run: |
           base="https://github.com/$GITHUB_REPOSITORY/releases/download"
           for p in $(sed -n 's/^path = "\(.*\)"/\1/p' index.toml); do
-            name=$(sed -n 's/^name = "\(.*\)"/\1/p' "$p/plugin.toml")
+            name=$(sed -n 's/^name = "\(.*\)"/\1/p' "$p/plugin.toml" | head -n1)
             version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$p/plugin.toml")
             tag="$name-v$version"
             if gh release view "$tag" >/dev/null 2>&1; then
