@@ -2,13 +2,15 @@ name = "card-lint"
 title = "Card lint"
 version = "0.5.0"
 protocol = 1
-protocol_version = "1.2"
+protocol_version = "1.3"
 command = ["./card-lint"]
 capabilities = ["enrich"]
 # Lint makes no model calls, so one run can cover a whole archive.
 enrich_max_cards = 1000000
 # Free and instant, so new cards get scored as they arrive.
 enrich_on_change = true
+# Free and instant: runs before the plugins that call a model.
+enrich_cost = 100
 description = "Free, instant checks on every card, no AI needed: missing fields, too short or too long, repeated text, leftover placeholders, garbled text, and language. Scores new cards as they're imported; run it from the selection bar for cards already in the library."
 category = "Quality"
 
@@ -26,3 +28,22 @@ lint = { type = "score", range = [0, 100], label = "Lint", grid = true, priority
 tokens = { type = "score", range = [0, 1000000], label = "Always-on tokens" }
 problems = { type = "list", label = "Problems", browse = true, section = "problems" }
 language = { type = "text", label = "Language", browse = true, section = "kind" }
+
+[searches.junk]
+name = "Junk"
+filter = { or = [
+  { enrichment = "problems", is = "too_short" },
+  { enrichment = "problems", is = "placeholder" },
+  { enrichment = "problems", is = "no_first_message" },
+  { enrichment = "problems", is = "no_description" },
+] }
+
+[searches.non_english]
+name = "Non-English"
+# missing = false: a not alone would match cards card-lint hasn't checked.
+# Unknown is a card too short or mixed to tell, not a foreign one.
+filter = { and = [
+  { enrichment = "language", missing = false },
+  { not = { enrichment = "language", is = "English" } },
+  { not = { enrichment = "language", is = "Unknown" } },
+] }
