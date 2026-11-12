@@ -2,7 +2,8 @@ name = "crucible"
 title = "Crucible"
 version = "0.5.0"
 protocol = 1
-protocol_version = "1.3"
+protocol_version = "1.4"
+enrich_version = 1
 command = ["./crucible"]
 capabilities = ["enrich"]
 # Each card is one quick HTTP lookup, so one run can cover a whole archive.

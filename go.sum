@@ -60,6 +60,8 @@ github.com/inkandale/innkeeper v0.0.0-20261107001902-07b5456e6407 h1:6dt5CGFHmof
 github.com/inkandale/innkeeper v0.0.0-20261107001902-07b5456e6407/go.mod h1:EjbfCeFBLQZtfyYSYqlmM1y/zq5x3oU4LNvIEQ/eql0=
 github.com/inkandale/innkeeper v0.0.0-20261107192535-4da010f283dc h1:c/zZaPKQF8HEfEdzRTMgJtGoUJgAedI7K095NwuJq2Q=
 github.com/inkandale/innkeeper v0.0.0-20261107192535-4da010f283dc/go.mod h1:EjbfCeFBLQZtfyYSYqlmM1y/zq5x3oU4LNvIEQ/eql0=
+github.com/inkandale/innkeeper v0.0.0-20261112003736-cc06bb14f315 h1:X0YWedokk0KFAAlOPZkqGOOcJogUxrAARchTIo7SOKA=
+github.com/inkandale/innkeeper v0.0.0-20261112003736-cc06bb14f315/go.mod h1:EjbfCeFBLQZtfyYSYqlmM1y/zq5x3oU4LNvIEQ/eql0=
 github.com/invopop/jsonschema v0.14.0 h1:MHQqLhvpNUZfw+hM3AZDYK7jxO8FZoQeQM77g8iyZjg=
 github.com/invopop/jsonschema v0.14.0/go.mod h1:ygm6C2EaVNMBDPpaPlnOA2pFAxBnxGjFlMZABxm9n2I=
 github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=
