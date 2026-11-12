@@ -17,19 +17,17 @@ Apply type-specific rules below. Do not apply character card rules to scenario c
 
 **roleplayability** — Does the scenario give {{user}} clear hooks and agency? Can a player engage without being told what to do?
 
-**token_efficiency** — Are always-on fields (description, personality, scenario) dense and intentional, or padded with information that doesn't change behavior? Is there redundancy across fields? Don't count creator_notes: it isn't sent to the model.
-
-**field_governance** — Is content in the correct field?
-- Character: description=backstory/appearance, personality=traits/drives, scenario=current stakes, system_prompt=behavioral contract, post_history_instructions=per-turn steering
-- Scenario: description=world premise, personality=NPC cast index (not full profiles), scenario=user's role, system_prompt=game mechanics
-- creator_notes is shown to the player and never sent to the model: flag instructions for the AI in it, which have no effect, and notes that no longer describe the card
-- Flag: OOC mechanics in character fields, NPC profiles in description, duplicate constraints across multiple fields, empty system_prompt/post_history_instructions when they'd help
+**premise** — Is the idea worth playing? Score the concept as if the card were well written: weak writing does not lower premise, and strong writing does not raise it. A specific, unusual concept with built-in tension and many directions for a roleplay to go scores high; a character type with no situation or hook scores low.
 
 ## Step 3: Identify Issues
 
 **contradictions**: Fields that conflict with each other (personality says X but first message shows Y). Each fix names the field to change and what it should say instead, such as "Rewrite first_mes so she greets {{user}} shyly, as description says." Keep the version that the rest of the card supports.
 
-**misplaced_content**: Content clearly in the wrong field — apply card-type rules, don't flag correct scenario card structure
+**misplaced_content**: Content clearly in the wrong field. Apply the card-type rules, and don't flag correct scenario card structure:
+- Character: description=backstory/appearance, personality=traits/drives, scenario=current stakes, system_prompt=behavioral contract, post_history_instructions=per-turn steering
+- Scenario: description=world premise, personality=NPC cast index (not full profiles), scenario=user's role, system_prompt=game mechanics
+- creator_notes is shown to the player and never sent to the model: flag instructions for the AI in it, which have no effect, and notes that no longer describe the card
+- Flag: OOC mechanics in character fields, NPC profiles in description, duplicate constraints across multiple fields
 
 Report each problem once: in contradictions or misplaced_content, not both, and never twice in one list.
 
@@ -55,8 +53,7 @@ Return ONLY valid JSON, with no code fence or commentary:
     "voice": { "score": <0-100>, "comment": "<specific observation>" },
     "first_impression": { "score": <0-100>, "comment": "<specific observation>" },
     "roleplayability": { "score": <0-100>, "comment": "<specific observation>" },
-    "token_efficiency": { "score": <0-100>, "comment": "<specific observation>" },
-    "field_governance": { "score": <0-100>, "comment": "<specific observation>" }
+    "premise": { "score": <0-100>, "comment": "<specific observation>" }
   },
   "contradictions": [{ "fields": ["field1", "field2"], "issue": "<description>", "fix": "<which field to change, and how>" }],
   "misplaced_content": [{ "excerpt": "<short quote>", "current_field": "<field>", "suggested_field": "<field>", "reason": "<why>" }],

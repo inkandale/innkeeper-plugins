@@ -95,8 +95,7 @@ consistency = { type = "score", range = [0, 100], label = "Consistency" }
 voice = { type = "score", range = [0, 100], label = "Voice" }
 first_impression = { type = "score", range = [0, 100], label = "First impression" }
 roleplayability = { type = "score", range = [0, 100], label = "Roleplayability" }
-token_efficiency = { type = "score", range = [0, 100], label = "Token efficiency" }
-field_governance = { type = "score", range = [0, 100], label = "Field governance" }
+premise = { type = "score", range = [0, 100], label = "Premise" }
 
 [records.skill]
 label = "Skills"

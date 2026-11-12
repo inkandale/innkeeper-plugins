@@ -19,9 +19,9 @@ type decideQuestion struct {
 	levels       []string
 }
 
-// craftKey feeds quality but isn't stored: the chat model's evaluation has no
-// matching dimension.
-const craftKey = "craft"
+// premiseKey rates the card's idea apart from its writing, so quality, a
+// measure of the writing, leaves it out.
+const premiseKey = "premise"
 
 var decideQuestions = []decideQuestion{
 	{"first_impression", "How well does the greeting (first message) open a roleplay?", []string{
@@ -45,12 +45,19 @@ var decideQuestions = []decideQuestion{
 		"A clear situation with hooks and room to develop",
 		"Rich: a situation, tensions, and several directions the roleplay could go",
 	}},
-	{craftKey, "How well written is the card overall?", []string{
-		"Mostly empty, broken, or unreadable",
-		"Rough: typos, keyword lists in place of prose, or contradictions",
-		"Readable and serviceable",
-		"Well written and organized",
-		"Polished: clear, specific, and economical",
+	{"consistency", "How well do the fields agree with each other?", []string{
+		"Fields describe different characters or premises",
+		"Several conflicts a player would notice, such as a greeting that acts against the personality",
+		"One conflict a player would notice",
+		"Only minor slips that wouldn't change play",
+		"Every field agrees, and the greeting and examples show the personality as described",
+	}},
+	{premiseKey, "Judging the idea rather than the writing, how worth playing is the concept?", []string{
+		"No discernible concept",
+		"A character type with no situation or hook",
+		"A familiar trope played straight, with little tension",
+		"A specific concept with some tension, or a familiar trope with a fresh angle",
+		"A specific, unusual concept with built-in tension and many directions to go",
 	}},
 }
 
@@ -96,7 +103,8 @@ func decideState(data json.RawMessage) (json.RawMessage, error) {
 var errUnsure = errors.New("the decision model isn't confident enough")
 
 // decideScores scores one revision with the decision model: each question's
-// level scaled to 0 to 100, and quality their mean.
+// level scaled to 0 to 100, and quality the mean of all but premise, as in
+// the chat model's evaluation.
 func (srv *server) decideScores(ctx context.Context, in *instance, rev protocol.EnrichRevision) (map[string]json.RawMessage, valueMeta, error) {
 	state, err := decideState(rev.Data)
 	if err != nil {
@@ -110,19 +118,20 @@ func (srv *server) decideScores(ctx context.Context, in *instance, rev protocol.
 	}
 	values := map[string]json.RawMessage{}
 	var quality, confidence float64
+	inQuality := float64(len(decideQuestions) - 1) // every question but premise
 	for _, q := range decideQuestions {
 		a, ok := res.Answers[q.key]
 		if !ok || a.Score == nil {
 			return nil, valueMeta{}, fmt.Errorf("the decision model didn't score %s", q.key)
 		}
 		score := min(max(*a.Score/float64(len(q.levels)-1)*100, 0), 100)
-		quality += score / float64(len(decideQuestions))
+		if q.key != premiseKey {
+			quality += score / inQuality
+		}
 		if a.Confidence != nil {
 			confidence += *a.Confidence / float64(len(decideQuestions))
 		}
-		if q.key != craftKey {
-			values[q.key], _ = json.Marshal(score)
-		}
+		values[q.key], _ = json.Marshal(score)
 	}
 	if confidence < in.settings.escalateBelow() {
 		return nil, valueMeta{}, errUnsure

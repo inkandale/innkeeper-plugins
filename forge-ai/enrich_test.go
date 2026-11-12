@@ -18,7 +18,7 @@ import (
 const evaluated = `{"summary": "Solid.", "overall_score": 82, "card_type": "character", "dimensions": {
 "consistency": {"score": 90, "comment": "ok"}, "voice": {"score": 120, "comment": "ok"},
 "first_impression": {"score": -5, "comment": "ok"}, "roleplayability": {"score": 70, "comment": "ok"},
-"token_efficiency": {"score": 60.5, "comment": "ok"}, "field_governance": {"score": 50, "comment": "ok"}},
+"premise": {"score": 10, "comment": "ok"}},
 "contradictions": [], "misplaced_content": [], "suggestions": []}`
 
 func enrichParams(names ...string) protocol.EnrichRunParams {
@@ -48,8 +48,9 @@ func TestEnrichMapsEvaluationToDeclaredKeys(t *testing.T) {
 		t.Fatalf("results %+v", res.Results)
 	}
 	got := values(t, res.Results[0])
-	want := map[string]float64{"quality": 61.75, "consistency": 90, "voice": 100, "first_impression": 0,
-		"roleplayability": 70, "token_efficiency": 60.5, "field_governance": 50}
+	// Quality leaves premise out.
+	want := map[string]float64{"quality": 65, "consistency": 90, "voice": 100, "first_impression": 0,
+		"roleplayability": 70, "premise": 10}
 	if !maps.Equal(got, want) {
 		t.Fatalf("values %v, want %v (out-of-range scores clamped)", got, want)
 	}
@@ -88,7 +89,7 @@ func TestEnrichFailedRevisionKeepsTheBatch(t *testing.T) {
 			t.Errorf("revision %d: %+v, want only an error", r.RevisionID, res.Results[i])
 		}
 	}
-	if r := res.Results[2]; r.RevisionID != 102 || r.Error != "" || len(r.Values) != 7 {
+	if r := res.Results[2]; r.RevisionID != 102 || r.Error != "" || len(r.Values) != 6 {
 		t.Fatalf("third revision %+v", r)
 	}
 	var messages []string
@@ -259,8 +260,8 @@ func TestEnrichScoresWithDecide(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := res.Results[0]
-	// Quality is the mean of all four, craft included; craft isn't stored.
-	want := map[string]float64{"first_impression": 75, "voice": 100, "roleplayability": 75, "quality": 81.25}
+	// Quality leaves premise out, as the chat model's evaluation does.
+	want := map[string]float64{"first_impression": 75, "voice": 100, "roleplayability": 75, "consistency": 75, "premise": 75, "quality": 81.25}
 	if got := values(t, r); !maps.Equal(got, want) || r.Error != "" {
 		t.Fatalf("values %v (%s), want %v", got, r.Error, want)
 	}
@@ -271,7 +272,7 @@ func TestEnrichScoresWithDecide(t *testing.T) {
 	if len(llm.requests) != 0 {
 		t.Fatalf("the chat model was called %d times", len(llm.requests))
 	}
-	if len(d.requests) != 1 || len(d.requests[0].Questions) != 4 || !strings.Contains(string(d.requests[0].State), "A towering orc.") {
+	if len(d.requests) != 1 || len(d.requests[0].Questions) != 5 || !strings.Contains(string(d.requests[0].State), "A towering orc.") {
 		t.Fatalf("decide requests %+v", d.requests)
 	}
 }
@@ -279,7 +280,7 @@ func TestEnrichScoresWithDecide(t *testing.T) {
 func TestEnrichEscalatesLowConfidenceToTheChatModel(t *testing.T) {
 	llm, cfg := withLLM(t, streamed(evaluated))
 	d := confident()
-	d.confidence["voice"], d.confidence["craft"] = 0, 0
+	d.confidence["voice"], d.confidence["consistency"] = 0, 0
 	cfg["escalate_below"] = 0.8
 	h := startPlugin(t, withDecider(t, cfg, d))
 	res, err := h.enrich(t, enrichParams("Brakka"))
@@ -287,7 +288,7 @@ func TestEnrichEscalatesLowConfidenceToTheChatModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := res.Results[0]
-	if got := values(t, r); got["consistency"] != 90 || got["quality"] != 61.75 {
+	if got := values(t, r); got["consistency"] != 90 || got["quality"] != 65 {
 		t.Fatalf("values %v, want the chat model's", got)
 	}
 	if !strings.Contains(string(r.Meta), `"evaluate-`) || len(llm.requests) != 1 {
@@ -305,7 +306,7 @@ func TestEnrichThoroughSkipsDecide(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := values(t, res.Results[0]); got["quality"] != 61.75 || len(llm.requests) != 1 || len(d.requests) != 0 {
+	if got := values(t, res.Results[0]); got["quality"] != 65 || len(llm.requests) != 1 || len(d.requests) != 0 {
 		t.Fatalf("values %v, chat calls %d, decide calls %d", got, len(llm.requests), len(d.requests))
 	}
 }
@@ -318,7 +319,7 @@ func TestEnrichFallsBackToChatWhenDecideFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := values(t, res.Results[0]); got["quality"] != 61.75 || len(llm.requests) != 1 {
+	if got := values(t, res.Results[0]); got["quality"] != 65 || len(llm.requests) != 1 {
 		t.Fatalf("values %v, chat calls %d", got, len(llm.requests))
 	}
 }
@@ -372,7 +373,7 @@ func TestEvaluateRunSendsItsScoresAsValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(res.Values["quality"]) != "61.75" || string(res.Values["voice"]) != "100" || len(res.Values) != 7 {
+	if string(res.Values["quality"]) != "65" || string(res.Values["voice"]) != "100" || len(res.Values) != 6 {
 		t.Fatalf("values %v", res.Values)
 	}
 	var meta map[string]string

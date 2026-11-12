@@ -68,7 +68,7 @@ var actions = []action{
 	{Action: protocol.Action{ID: "lore-entries", Label: "Write lore entries", Description: "Add entries about what you describe, from the cards you mention.",
 		Applies: protocol.ApplyLorebook, Instruction: true, Library: true,
 		Inputs: json.RawMessage(`{"type": "object", "properties": {"count": {"type": "integer", "title": "Entries", "minimum": 1, "maximum": 20, "default": 5}}}`)}, temperature: 0.7, maxTokens: 8192, appends: entriesAppender},
-	{Action: protocol.Action{ID: "evaluate", Label: "Evaluate", Description: "Score the card on six dimensions and list its problems.",
+	{Action: protocol.Action{ID: "evaluate", Label: "Evaluate", Description: "Score the card on four dimensions and its premise, and list its problems.",
 		Applies: protocol.ApplyCard, ReportOnly: true}, temperature: 0, maxTokens: 4096, evaluates: cardEvaluator},
 	{Action: protocol.Action{ID: "evaluate-lorebook", Label: "Evaluate", Description: "Score the lorebook on five dimensions and list its problems.",
 		Applies: protocol.ApplyLorebook, ReportOnly: true}, temperature: 0, maxTokens: 8192, evaluates: lorebookEvaluator},
@@ -288,7 +288,7 @@ var cardEvaluator = &evaluator{
 	keys: []string{"summary", "overall_score", "card_type", "dimensions", "contradictions", "misplaced_content", "suggestions"},
 	dimensions: []dimension{
 		{"consistency", "Consistency"}, {"voice", "Voice"}, {"first_impression", "First impression"},
-		{"roleplayability", "Roleplayability"}, {"token_efficiency", "Token efficiency"}, {"field_governance", "Field governance"},
+		{"roleplayability", "Roleplayability"}, {premiseKey, "Premise"},
 	},
 	enriches: true,
 }
@@ -389,14 +389,18 @@ func (ev *evaluator) report(obj map[string]json.RawMessage) (*protocol.Report, e
 		}
 	}
 	var sum float64
+	var n int
 	for _, d := range ev.dimensions {
 		if v, ok := e.Dimensions[d.key]; ok && v.Score != nil {
 			r.Dimensions = append(r.Dimensions, protocol.ReportDimension{Key: d.key, Label: d.label, Score: *v.Score, Comment: v.Comment})
-			sum += min(max(*v.Score, 0), 100)
+			if d.key != premiseKey {
+				sum += min(max(*v.Score, 0), 100)
+				n++
+			}
 		}
 	}
 	// The dimensions' mean varies less between runs than the model's own overall score.
-	if n := len(r.Dimensions); n > 0 {
+	if n > 0 {
 		mean := sum / float64(n)
 		r.Score = &mean
 	}

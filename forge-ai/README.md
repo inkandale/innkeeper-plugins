@@ -76,8 +76,9 @@ picks and stores its scores, all 0 to 100:
 
 | Key | Score |
 |---|---|
-| `quality` | The mean of the dimensions, shown on the library grid and as the report's score |
-| `consistency`, `voice`, `first_impression`, `roleplayability`, `token_efficiency`, `field_governance` | Each evaluate dimension |
+| `quality` | The mean of the four writing dimensions, shown on the library grid and as the report's score |
+| `consistency`, `voice`, `first_impression`, `roleplayability` | Each writing dimension |
+| `premise` | How worth playing the idea is, scored as if the card were well written; left out of `quality` |
 
 For similar cards and search by meaning, use the Similar cards plugin.
 
@@ -105,10 +106,10 @@ revision.
 
 With `decide` set to an `ai` instance offering `ai.decide`, such as a
 vllm-sr/d3 connection, each card gets one `ai.decide` call first instead of
-the chat model. It asks four score questions, each with five levels that
-describe situations: `first_impression`, `voice`, `roleplayability`, and
-`craft`. Each level is scaled to 0 to 100. `quality` is the mean of all
-four; `craft` itself isn't stored. The questions see only the card's name,
+the chat model. It asks five score questions, each with five levels that
+describe situations: `first_impression`, `voice`, `roleplayability`,
+`consistency`, and `premise`. Each level is scaled to 0 to 100, and
+`quality` is the mean of all but `premise`, as with the chat model. The questions see only the card's name,
 description, personality, scenario, first message, and examples. Their
 values' prompt version is `decide-` plus a hash of the questions.
 
@@ -117,11 +118,8 @@ The chat model scores the card instead, with every dimension, when:
 - the run is thorough, as Rescore on a card's page is, so the card's score
   matches its Forge report;
 - the decision call fails, such as a card too long for the server; or
-- the mean confidence of the four answers is below `escalate_below`,
+- the mean confidence of the five answers is below `escalate_below`,
   0.25 by default.
-
-So `consistency`, `token_efficiency`, and `field_governance` come only from
-the chat model.
 
 The two don't score on the same scale. On 40 random Chub cards (October
 2026, d3 Q8_0 against Artemis 31B), they ranked cards alike, with a
