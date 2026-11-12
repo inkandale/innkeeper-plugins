@@ -26,8 +26,7 @@ consistency = { type = "score", range = [0, 100], label = "Consistency" }
 voice = { type = "score", range = [0, 100], label = "Voice" }
 first_impression = { type = "score", range = [0, 100], label = "First impression" }
 roleplayability = { type = "score", range = [0, 100], label = "Roleplayability" }
-token_efficiency = { type = "score", range = [0, 100], label = "Token efficiency" }
-field_governance = { type = "score", range = [0, 100], label = "Field governance" }
+premise = { type = "score", range = [0, 100], label = "Premise" }
 severity = { type = "score", range = [0, 100], label = "Severity" }
 rating = { type = "text", label = "Content rating", browse = true, section = "warnings" }
 card_type = { type = "text", label = "Card type", browse = true, section = "kind" }
@@ -38,6 +37,15 @@ violence = { type = "text", label = "Violence" }
 flags = { type = "list", label = "Flags", browse = true, section = "warnings" }
 contradictions = { type = "list", label = "Contradictions" }
 suggestions = { type = "list", label = "Suggestions" }
+
+[searches.worth_improving]
+name = "Worth improving"
+# A strong idea in weak writing. Teachers score premise higher than quality on
+# most cards, so the cutoffs sit apart; tune them on a retrained model's values.
+filter = { and = [
+  { enrichment = "premise", gte = 70 },
+  { enrichment = "quality", lte = 50 },
+] }
 
 [searches.low_effort]
 name = "Low effort"

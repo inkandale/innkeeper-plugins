@@ -11,7 +11,7 @@ Until you set it, every run fails with "set the service URL".
 
 | Key | Type |
 |---|---|
-| `quality`, `consistency`, `voice`, `first_impression`, `roleplayability`, `token_efficiency`, `field_governance`, `severity` | score, 0 to 100 |
+| `quality`, `consistency`, `voice`, `first_impression`, `roleplayability`, `premise`, `severity` | score, 0 to 100 |
 | `rating`, `card_type`, `pov`, `format`, `sexual`, `violence` | text |
 | `flags`, `contradictions`, `suggestions` | list |
 
