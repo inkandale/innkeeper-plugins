@@ -25,7 +25,7 @@ placeholders = { type = "array", title = "Placeholders", items = { type = "strin
 
 [enrichments]
 lint = { type = "score", range = [0, 100], label = "Lint", grid = true, priority = 100, browse = true, section = "score" }
-tokens = { type = "score", range = [0, 1000000], label = "Always-on tokens" }
+tokens = { type = "score", range = [0, 1000000], label = "Always-on tokens", browse = true, section = "score" }
 problems = { type = "list", label = "Problems", browse = true, section = "problems" }
 language = { type = "text", label = "Language", browse = true, section = "kind" }
 
