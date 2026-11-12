@@ -1,6 +1,6 @@
 name = "forge-ai"
 title = "Forge"
-version = "0.15.0"
+version = "0.16.0"
 protocol = 1
 protocol_version = "1.3"
 command = ["./forge-ai"]
