@@ -97,7 +97,12 @@ func planNotes(text string, fields []string) (map[string]string, error) {
 		}
 		var note string
 		if err := json.Unmarshal(raw, &note); err != nil {
-			return nil, fmt.Errorf("the model's note for %s isn't text", f)
+			// Models often plan a multi-part field, like example dialogue, as one note per part.
+			var parts []string
+			if json.Unmarshal(raw, &parts) != nil {
+				return nil, fmt.Errorf("the model's note for %s isn't text", f)
+			}
+			note = strings.Join(parts, " ")
 		}
 		if note = strings.TrimSpace(note); note != "" && !strings.EqualFold(note, "skip") {
 			notes[f] = note

@@ -130,7 +130,7 @@ func TestMalformedPlanFailsTheRun(t *testing.T) {
 	for name, plan := range map[string]string{
 		"no JSON":       "I'd tighten the description.",
 		"note not text": `{"description": 3}`,
-		"note a list":   `{"description": ["Cut it."]}`,
+		"note a list":   `{"description": ["Cut it.", 3]}`,
 	} {
 		llm, cfg := withLLM(t, streamed(plan), streamed(plan), streamed(`{"description": "x"}`))
 		h := startPlugin(t, cfg)
@@ -143,6 +143,22 @@ func TestMalformedPlanFailsTheRun(t *testing.T) {
 		if len(llm.requests) != 2 {
 			t.Errorf("%s: %d requests, want the plan and its one retry", name, len(llm.requests))
 		}
+	}
+}
+
+// Models often plan example dialogue as one note per example.
+func TestPlanAcceptsAListOfNotesForAField(t *testing.T) {
+	llm, cfg := withLLM(t,
+		streamed(`{"mes_example": ["Shorten the first.", "Cut the second."]}`),
+		streamed(`{"mes_example": "<START>"}`))
+	h := startPlugin(t, cfg)
+	p := sampleRun(t, "tighten")
+	p.Field = ""
+	if _, err := h.run(t, p); err != nil {
+		t.Fatal(err)
+	}
+	if len(llm.requests) != 2 || !strings.Contains(userPrompt(llm.requests[1]), "Shorten the first. Cut the second.") {
+		t.Fatalf("%d requests; section prompt doesn't carry the joined note", len(llm.requests))
 	}
 }
 
