@@ -128,9 +128,7 @@ func TestPlanIgnoresUnknownKeysAndSkipsMissingFields(t *testing.T) {
 
 func TestMalformedPlanFailsTheRun(t *testing.T) {
 	for name, plan := range map[string]string{
-		"no JSON":       "I'd tighten the description.",
-		"note not text": `{"description": 3}`,
-		"note a list":   `{"description": ["Cut it.", 3]}`,
+		"no JSON": "I'd tighten the description.",
 	} {
 		llm, cfg := withLLM(t, streamed(plan), streamed(plan), streamed(`{"description": "x"}`))
 		h := startPlugin(t, cfg)
@@ -146,19 +144,22 @@ func TestMalformedPlanFailsTheRun(t *testing.T) {
 	}
 }
 
-// Models often plan example dialogue as one note per example.
-func TestPlanAcceptsAListOfNotesForAField(t *testing.T) {
-	llm, cfg := withLLM(t,
-		streamed(`{"mes_example": ["Shorten the first.", "Cut the second."]}`),
-		streamed(`{"mes_example": "<START>"}`))
-	h := startPlugin(t, cfg)
-	p := sampleRun(t, "tighten")
-	p.Field = ""
-	if _, err := h.run(t, p); err != nil {
-		t.Fatal(err)
-	}
-	if len(llm.requests) != 2 || !strings.Contains(userPrompt(llm.requests[1]), "Shorten the first. Cut the second.") {
-		t.Fatalf("%d requests; section prompt doesn't carry the joined note", len(llm.requests))
+// Models often plan example dialogue as a list or object of notes, one per example.
+func TestPlanKeepsANoteThatIsNotText(t *testing.T) {
+	for name, note := range map[string]string{
+		"list":   `["Shorten the first.", "Cut the second."]`,
+		"object": `{"example 1": "Shorten the first.", "example 2": "Cut the second."}`,
+	} {
+		llm, cfg := withLLM(t, streamed(`{"mes_example": `+note+`}`), streamed(`{"mes_example": "<START>"}`))
+		h := startPlugin(t, cfg)
+		p := sampleRun(t, "tighten")
+		p.Field = ""
+		if _, err := h.run(t, p); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if len(llm.requests) != 2 || !strings.Contains(userPrompt(llm.requests[1]), "Cut the second.") {
+			t.Errorf("%s: %d requests; the section prompt doesn't carry the note", name, len(llm.requests))
+		}
 	}
 }
 
