@@ -184,8 +184,8 @@ search box and a Delete button on each.
 
 `generate`, `revise`, `alternate-greetings`, `revise-lorebook`, and `lore-entries` may read the
 library through `library.call` when the owner turns on Library access for
-the instance. A whole-card run's plan call offers no tools; each field's
-call does. If the `ai` instance rejects the request with tools, the run
+the instance. A whole-card run's plan call offers no tools, but it gets the mentioned skills' instructions; each field's
+call offers tools. If the `ai` instance rejects the request with tools, the run
 retries once without them, and only the cards and lorebooks the owner
 attached reach the model.
 

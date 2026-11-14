@@ -60,6 +60,17 @@ func (srv *server) plan(ctx context.Context, in *instance, r *run) (map[string]s
 	if err != nil {
 		return nil, "", err
 	}
+	if len(r.Context.Skills) > 0 {
+		enabled, err := in.enabledSkills(ctx)
+		if err != nil {
+			return nil, "", fmt.Errorf("list skills: %w", err)
+		}
+		forced, err := in.forcedSkills(ctx, enabled, r.Context.Skills)
+		if err != nil {
+			return nil, "", err
+		}
+		system += skillsPrompt(forced)
+	}
 	temperature, maxTokens := planLimits.limits(in.settings)
 	req := protocol.AIChatParams{Temperature: &temperature, MaxTokens: &maxTokens,
 		Messages: []protocol.ChatMessage{{Role: "system", Content: system}, {Role: "user", Content: user}}}

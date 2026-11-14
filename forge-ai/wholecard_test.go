@@ -303,3 +303,34 @@ func TestChangePOVNamesOnlyTheFieldItEdits(t *testing.T) {
 		t.Errorf("third person on first_mes lacks the narrator rule:\n%s", system)
 	}
 }
+
+func TestWholeCardPlanGetsForcedSkills(t *testing.T) {
+	llm, h := skillsHost(t,
+		streamed(`{"description": "Cut the repeated height.", "personality": "skip"}`),
+		streamed(`{"description": "A towering orc."}`))
+	p := sampleRun(t, "tighten")
+	p.Field = ""
+	p.Context.Skills = []string{"college"}
+	if _, err := h.run(t, p); err != nil {
+		t.Fatal(err)
+	}
+	plan := llm.requests[0]
+	if !strings.Contains(systemPrompt(plan), "### college\n\n# College") {
+		t.Fatalf("plan system prompt %q", systemPrompt(plan))
+	}
+	if plan["tools"] != nil {
+		t.Fatalf("plan offered tools %v", plan["tools"])
+	}
+}
+
+func TestWholeCardUnknownSkillRefusedBeforePlanning(t *testing.T) {
+	llm, h := skillsHost(t)
+	p := sampleRun(t, "tighten")
+	p.Field = ""
+	p.Context.Skills = []string{"nope"}
+	_, err := h.run(t, p)
+	wantInvalid(t, err, "unknown skill")
+	if len(llm.requests) != 0 {
+		t.Fatalf("%d requests sent before refusing", len(llm.requests))
+	}
+}
