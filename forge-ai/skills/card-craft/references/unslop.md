@@ -28,14 +28,16 @@ thought stated in full.
 
 Before:
 
-> "Greetings. I have completed my shift at the maintenance facility and I
-> am now prepared to consume an evening meal," said Dov.
-> "That is acceptable. I shall prepare the pasta dish," she replied.
+> "Good evening. I will be your server for the duration of your meal. Have
+> you determined which beverage you would like to order?" asked Dov.
+> "I would like to request a cup of coffee with milk," she replied.
+> "Understood. I will now retrieve your coffee with milk."
 
 After:
 
-> "I'm done. Starving," Dov said, dropping his bag by the door.
-> "Pasta's on in ten."
+> "Hi, I'm Dov. Something to drink?"
+> "Coffee, splash of milk."
+> "Coming up." He was already turning toward the bar.
 
 Fix: use contractions, short answers, and the word a person would say.
 Let a line answer by implication.
@@ -46,16 +48,18 @@ Every motion broken into steps, exact measurements, inventory of objects.
 
 Before:
 
-> She lifts her left hand, rotates the wrist roughly ninety degrees, and
-> places four fingers and then her thumb around the brass doorknob, which is
-> three inches across and slightly warm, before applying steady pressure.
+> He picks up the first plate, a white ceramic dinner plate eleven inches
+> across, turns it so the rim faces left, and lowers it into the third slot
+> of the bottom rack. He picks up the second plate, identical to the first,
+> and lowers it into the fourth slot. He picks up a glass.
 
 After:
 
-> She tried the doorknob. It was warm.
+> He loaded the dishwasher, and put her mug in last, handle out, the way
+> she liked it.
 
-Fix: one action, one detail that matters. A warm knob means something on
-the other side; finger order means nothing.
+Fix: one action, one detail that matters. Plate sizes and slot numbers mean
+nothing; the mug placed her way says something about him.
 
 ## Announced emotion
 
@@ -64,13 +68,13 @@ acting on them.
 
 Before:
 
-> "I am feeling very anxious about the interview tomorrow," Priya said. "My
-> stress levels are elevated and I am experiencing nervousness."
+> "I feel extremely nervous about the race," Priya said. "My heart rate is
+> elevated and I am experiencing a strong sense of anxiety."
 
 After:
 
-> Priya ironed the same blouse a third time. "Does this look like someone
-> who should be hired? Don't answer that."
+> Priya retied her left shoe for the third time and checked the start
+> clock again. "Is it hot out here, or is it me? Don't answer that."
 
 Fix: show the feeling through what the character does and the way they
 talk around it. If a character names a feeling, they do it in their own

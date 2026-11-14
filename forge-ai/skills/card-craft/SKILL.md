@@ -20,12 +20,13 @@ example dialogue that teaches the voice, and plain prose.
 - Keep every fact: names, ages, relationships, places, abilities, and the
   setting's rules. To fix a contradiction, keep the version the rest of the
   card supports.
-- Keep every `{{char}}`, `{{user}}`, and other macro, and every `<START>` line.
 - Keep the card's tone and level of explicitness. A craft edit doesn't make
   a card darker, softer, or tamer.
 - Build new causes, memories, and tells from what the card already says.
   When the card gives nothing to build from, add one small detail that fits
   it, never a new relative, trauma, or plot.
+- When the action is tighten or to-prose, apply only the Cutting section and
+  `references/unslop.md`. Add nothing.
 
 ## Failure modes
 
@@ -37,6 +38,8 @@ example dialogue that teaches the voice, and plain prose.
 - **Polishing everything.** The edit rewrites fields the instruction didn't
   name, or smooths every sentence into the same register. Change what was
   asked; leave the owner's sentences alone.
+  - Bad: asked to fix `personality`, the edit also rewords `first_mes`.
+  - Better: `personality` changes; every other field stays word for word.
 - **Drifting agreeable.** The rewrite softens every edge until the character
   agrees with anything `{{user}}` says.
   - Bad: "Blunt, but always supportive of {{user}}'s choices."
@@ -53,11 +56,17 @@ example dialogue that teaches the voice, and plain prose.
     once mailed it."
 - **Writing for `{{user}}`.** Example dialogue or `first_mes` narrates what
   `{{user}}` does or feels. The model then learns to write `{{user}}`'s turn.
+  - Bad: `{{user}}: *Steps closer, heart pounding.* Hi.`
+  - Better: `{{user}}: Hi.`
 - **Cutting example dialogue to save space.** Shorter examples train shorter,
   flatter replies.
+  - Bad: three four-line blocks trimmed to one line each.
+  - Better: all three blocks kept at full length.
 - **Cutting the voice with the filler.** A prose pass strips the character's
   idiom along with the ornament. Remove the narrator's padding; keep the
   character's quirks of speech.
+  - Bad: "Ain't no way, chief" becomes "That is not possible."
+  - Better: "Ain't no way, chief" stays; the narration around it gets shorter.
 
 ## Causal construction
 
@@ -90,7 +99,7 @@ character gives the same reply every turn.
 character doesn't control. "Turns her wedding ring when anyone mentions the
 harbor board." The tell lets the model hint at the secret without stating it.
 Put the tell in `personality` or `description` and the secret itself in a
-lorebook entry or a line the character never says aloud.
+lorebook entry, or in `description` as a fact the character hides.
 
 ## Testable traits
 
@@ -135,10 +144,12 @@ turn, so dead lines cost tokens and dilute the lines that matter.
 
 - Cut: biography the character never raises, appearance no scene will show,
   an adjective a stated behavior already shows, a rule stated twice.
-- Move instead of cutting detail that matters only when its subject comes
-  up. Put it in a lorebook entry: `comment` names it, `keys` lists words the
-  user or the character will actually say, and `content` states it in a few
-  sentences that make sense alone.
+- Never cut a fact because it matters only when its subject comes up; that
+  detail is a lorebook candidate. When the edit includes the lorebook, move
+  it to an entry: `comment` names it, `keys` lists words the user or the
+  character will actually say, and `content` states it in a few sentences
+  that make sense alone. Otherwise keep the detail where it is and name it
+  as a lorebook candidate in your reply or plan note.
 
 For field-by-field runtime behavior (what is sent every turn, once, or
 never), load `references/fields.md`.
@@ -168,16 +179,18 @@ For three before/after rewrites, load `references/examples.md`.
 
 ## Scenario and first message
 
-- `scenario` holds what stays true for the whole chat: the setting, how the
-  character knows `{{user}}`, and the standing stakes. It is sent every turn,
-  so a moment written there ("{{char}} waits at the bar") keeps coming back
-  long after the scene moves on.
-- The current moment belongs in `first_mes`, which is sent once: where the
-  character is, what is happening this minute, and the hook `{{user}}`
-  answers.
-- If the instruction covers both fields, move the moment from `scenario` to
-  `first_mes`. If it covers only `scenario`, rewrite the moment as the
-  standing situation ("{{char}} works the bar most nights").
+- `scenario` holds the standing situation and its stakes: where things
+  stand, how the character knows `{{user}}`, and what is at risk. It is sent
+  every turn, so moment-level detail parked there ("{{char}} sets down her
+  glass and turns to {{user}}") keeps coming back long after the scene
+  moves on.
+- The specific opening moment belongs in `first_mes`, which is sent once:
+  who is present, what just happened, the first beat, and the hook
+  `{{user}}` answers.
+- If the instruction covers both fields, move the opening moment from
+  `scenario` to `first_mes`. If it covers only `scenario`, rewrite the
+  moment as the situation it belongs to ("{{char}} has three nights left
+  before the bar closes for good").
 
 ## Edits per field
 
@@ -185,16 +198,20 @@ For three before/after rewrites, load `references/examples.md`.
 |---|---|
 | `description` | Role, look, and competence as things a scene can show. Replace backstory paragraphs with the one unresolved memory. Put the physical tell here if the card describes appearance here. |
 | `personality` | Three to five testable traits, each with its cause. The shared cause stated once. Failure behavior, conflict style, outright dislikes, tiered preferences. |
-| `scenario` | The standing situation and stakes, and the shared cause as a fact of the present. Move the current moment out to `first_mes` when both fields are in scope. |
-| `first_mes` | The current moment, shown through the character acting, at the length replies should be. End on something `{{user}}` must answer. |
+| `scenario` | The standing situation and stakes, and the shared cause as a fact of the present. Move the opening moment out to `first_mes` when both fields are in scope. |
+| `first_mes` | The opening moment, shown through the character acting, at the length replies should be. End on something `{{user}}` must answer. |
 | `mes_example` | Short `{{user}}` prompt, then the character's reaction. Varied verbs, the target length, the shared cause shown in one block. See `references/examples.md`. |
 | `alternate_greetings` | Same rules as `first_mes`. Each greeting stays consistent with the traits and causes you wrote. |
 | `system_prompt` | Leave it unless the instruction names it. Character traits belong in `personality`, not here. |
-| `post_history_instructions` | Leave it unless the instruction names it. If the edit adds a behavior the character keeps losing in long chats, a one-line reminder can go here. |
-| lorebook entries | Detail moved out of the permanent fields: one subject per entry, `keys` the chat will actually contain, `content` that stands alone. Use `constant` only for a fact every reply needs. |
+| `post_history_instructions` | Leave it unless the instruction names it. |
+| lorebook entries | When the edit includes the lorebook, detail moved out of the permanent fields: one subject per entry, `keys` the chat will actually contain, `content` that stands alone. Use `constant` only for a fact every reply needs. |
 | `creator_notes` | Update what it says about the character so it stays true. Keep credits, links, and play notes. |
 
 ## Done when
+
+These checks apply only to the fields and traits the edit touched. When one
+conflicts with the action's own instructions, such as tighten's "Don't add
+anything", the action's instructions win.
 
 - Every core trait in `personality` names a behavior a reader could catch
   being broken.
@@ -208,7 +225,8 @@ For three before/after rewrites, load `references/examples.md`.
   without changing some reply.
 - No `{{user}}` line in `mes_example` or `first_mes` narrates `{{user}}`'s
   actions or feelings, and no two example blocks open with the same verb.
-- `scenario` describes a situation, not a single moment.
+- `scenario` states the standing situation and stakes; the opening moment's
+  beats are in `first_mes`.
 - Fields the instruction didn't name are unchanged, and edited fields keep
   their format and point of view.
 

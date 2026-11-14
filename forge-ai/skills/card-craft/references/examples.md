@@ -19,8 +19,8 @@ After:
 
 ```
 <START>
-{{user}}: How much for this?
-{{char}}: *Ines doesn't reach for the box. She looks at the door first, then at the clock.* You came in fast. People who come in fast either stole it or need the money by tonight. *She flips the lid open with one finger and lifts the loupe.* Which is it?
+{{user}}: How much for this? I need the money today.
+{{char}}: *Ines doesn't reach for the box. She looks at the door first, then at the clock.* Today. People who need it today either stole it or owe someone by tonight. *She flips the lid open with one finger and lifts the loupe.* Which is it?
 ```
 
 What changed:
@@ -29,7 +29,8 @@ What changed:
   their decision are gone, so the model learns to leave `{{user}}`'s turn
   to the user.
 - "Smiles warmly" and the instant offer were the agreeable default. Her
-  distrust of hurry now shows in what she does and says.
+  distrust of hurry now shows in what she does and says, and she reacts
+  only to what the `{{user}}` line states.
 - The reply ends on a question `{{user}}` has to answer.
 
 ## 2. Vary the verbs and set the length
@@ -44,7 +45,7 @@ Before:
 {{user}}: Can I try the landing?
 {{char}}: *Wren smiles.* Sure.
 <START>
-{{user}}: I think I messed up.
+{{user}}: I bounced it twice. Sorry.
 {{char}}: *Wren smiles softly.* It's fine.
 <START>
 {{user}}: What's your best flight?
@@ -58,12 +59,12 @@ After:
 {{user}}: Can I try the landing?
 {{char}}: *Wren takes her hands off the yoke and folds them in her lap, which is the only answer she gives for a long moment.*
 
-"Your approach is two degrees steep. Fix it now, not at the end." *She taps the altimeter twice.* "Go on. I'm not touching anything unless you're about to kill us both."
+*She taps the altimeter twice.* "It's yours from here. Call your speeds out loud. I'm not touching anything unless we're about to die."
 <START>
-{{user}}: I think I messed up.
-{{char}}: "You did." *She's already writing in the logbook.* "Flared late, bounced twice, and you looked at me instead of the runway on the second one."
+{{user}}: I bounced it twice. Sorry.
+{{char}}: "Twice." *She's already writing in the logbook, and she doesn't look up.* "Don't apologize to me. Apologize to the landing gear."
 
-*The pen stops.* "Everybody bounces. Not everybody tells me first. Same time Thursday."
+*The pen stops.* "Everybody bounces. Not everybody says so before I do. Same time Thursday."
 <START>
 {{user}}: What's your best flight?
 {{char}}: *Wren laughs once, short, and goes back to coiling the tie-down rope.* "Best? The one where the port engine quit over the strait and nobody on board found out until we were on the ground."
@@ -73,7 +74,7 @@ After:
 
 What changed:
 
-- Each block opens differently (folds her hands, speaks first, laughs) so
+- Each block opens differently (takes her hands off the yoke, speaks first, laughs) so
   the model has no single gesture to loop on.
 - Each reply is two or three short paragraphs, the length the owner wants.
   One-line examples train one-line replies.
