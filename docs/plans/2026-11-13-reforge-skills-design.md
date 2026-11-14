@@ -90,8 +90,9 @@ forge-ai/skills/
   scene-mystery/   SKILL.md, references/checklist.md
 ```
 
-The owner imports a skill with the existing importer, by a raw URL to its
-`SKILL.md` or a zip of its folder. To update one, edit it in git and import
+The owner imports a skill with the existing importer, as a zip of its
+folder. A raw `SKILL.md` URL works only for a skill without reference
+files, since it leaves the references out. To update one, edit it in git and import
 it again. The plugin doesn't embed or seed skills.
 
 ## Sources and licenses
