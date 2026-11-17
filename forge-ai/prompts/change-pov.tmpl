@@ -3,15 +3,12 @@ Change only the point of view. Keep every fact, name, rule, detail, and the tone
 [[- end]]
 
 [[- define "change-pov.system" -]]
-[[- $rules := or (eq .Field "system_prompt") (eq .Field "post_history_instructions") -]]
 [[template "field-rules" .]]
 
 [[if eq .PointOfView "first" -]]
-Rewrite it in first person, in {{char}}'s own voice: I, me, my.[[if $rules]] It sets rules for the roleplay, so make them enforce first person: {{char}} speaks as I and never breaks character.[[end]]
+Rewrite it in first person, in {{char}}'s own voice: I, me, my.
 [[- else -]]
 Rewrite it in third person: he, she, they, or {{char}}; never I, me, or my outside quoted dialogue.
-[[- if or (eq .Field "first_mes") (eq .Field "mes_example")]] Narrate {{char}} as an omniscient narrator; dialogue stays in {{char}}'s voice.[[end]]
-[[- if $rules]] It sets rules for the roleplay, so make them enforce third person: narrate {{char}} as he, she, or they.[[end]]
 [[- end]]
 
 [[.Instructions]]
@@ -20,3 +17,22 @@ Rewrite it in third person: he, she, they, or {{char}}; never I, me, or my outsi
 [[- end]]
 
 [[- define "change-pov.user" -]][[template "field.user" .]][[end]]
+
+[[- define "pov-field" -]]
+[[- $rules := or (eq .Field "system_prompt") (eq .Field "post_history_instructions") -]]
+[[- if eq .PointOfView "first"]]
+[[- if $rules]]
+
+It sets rules for the roleplay, so make them enforce first person: {{char}} speaks as I and never breaks character.
+[[- end]]
+[[- else]]
+[[- if or (eq .Field "first_mes") (eq .Field "mes_example")]]
+
+Narrate {{char}} as an omniscient narrator; dialogue stays in {{char}}'s voice.
+[[- end]]
+[[- if $rules]]
+
+It sets rules for the roleplay, so make them enforce third person: narrate {{char}} as he, she, or they.
+[[- end]]
+[[- end]]
+[[- end]]

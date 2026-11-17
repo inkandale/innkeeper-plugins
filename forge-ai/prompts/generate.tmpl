@@ -1,7 +1,7 @@
 [[- define "generate.system" -]]
 [[.Instructions]]
 
-The card is written one field at a time. Write its "[[.Field]]" field now, as the Output Format above describes it[[if eq .Field "tags"]], separated by commas[[end]].[[if .Card]] Keep it consistent with the fields already written.[[end]]
+The card is written one field at a time, each as the Output Format above describes it and consistent with the fields already written. The message names the field to write.
 
 [[template "plain-text"]]
 [[- end]]
@@ -219,10 +219,8 @@ If the concept names the character, use that name. Otherwise generate a unique, 
 
 An image of the character is attached. Match their appearance to it.
 [[- end]]
-[[- if .Card]]
-
-The card so far:
-[[.Card]]
-[[- end]]
 [[- template "context" .]]
+[[- template "earlier" .]]
+
+Write the "[[.Field]]" field now[[if eq .Field "tags"]], separated by commas[[end]].
 [[- end]]

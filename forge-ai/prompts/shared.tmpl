@@ -19,6 +19,19 @@ Use these as reference. Keep names, relationships, and facts consistent with the
 [[- end]]
 [[- end]]
 
+[[- define "earlier" -]]
+[[- if .Earlier]]
+
+## Written so far in this run
+[[- range .Earlier]]
+
+### [[.Label]]
+
+[[.Text]]
+[[- end]]
+[[- end]]
+[[- end]]
+
 [[- define "field-ownership" -]]
 ## Field Ownership
 

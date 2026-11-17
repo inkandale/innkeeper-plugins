@@ -48,15 +48,23 @@ short structured replies are JSON: a plan and an evaluation.
 |---|---|
 | `generate` | One per field, in order: `name`, `description`, `personality`, `scenario`, `first_mes`, `mes_example`, `tags`, `system_prompt`, `post_history_instructions`, and for a scenario card `creator_notes`. Each sees the fields before it |
 | An edit on one field | One |
-| An edit on the whole card | A plan, then one per field it gives a note |
+| An edit on the whole card | A plan, then one per field it gives a note, side by side |
 | `alternate-greetings`, `lore-entries` | One per greeting or entry, each seeing the ones before it |
-| `revise-lorebook` | A plan, then one for the description and one per entry to change or add |
+| `revise-lorebook` | A plan, then one for the description and one per entry to change or add, side by side |
 | `evaluate`, `evaluate-lorebook` | One, answered in JSON |
 
-Each call sends the action's instructions and the card or lorebook again,
-so a run of many parts costs more input tokens than one call did. The card
-the model sees includes its `alternate_greetings`, which only
-`alternate-greetings` changes.
+Calls side by side run up to `concurrency` at once, 4 by default, and see
+only the card the plan saw; the plan keeps them from contradicting each
+other. Calls in order see what the ones before them wrote, listed after the
+card.
+
+Each call sends the action's instructions and the card or lorebook again.
+Every call of a run sends them the same way, with the card as the run found
+it and only the part that differs at the end, so a server that caches
+prompt prefixes, such as vLLM with prefix caching, reads them once per run.
+The whole-card plan offers no tools and the field calls may, so on such a
+server they share nothing. The card the model sees includes its
+`alternate_greetings`, which only `alternate-greetings` changes.
 
 The model puts each part between `<text>` and `</text>`, and Forge keeps
 only what's inside, so commentary such as "Here's the new field:" never
@@ -84,8 +92,8 @@ An edit on the whole card runs in two steps:
 1. One call reads the whole card, the owner's direction, and the action's
    instructions, and writes a note per field, or `skip`. It offers the
    model no tools.
-2. The field action runs on each field with a note, in order, with its note
-   and the card as the earlier fields left it.
+2. The field action runs on each field with a note, side by side, with its
+   note and the card the plan saw.
 
 The core keeps only the changes to the action's fields. A plan that skips
 every field proposes the card unchanged.
@@ -133,9 +141,10 @@ cards still get scored. Scoring offers the model no tools: no skills and no
 library.
 
 The core sends cards in batches of up to 20. `concurrency`, 4 by default,
-is how many of a batch's cards are scored at once; results keep the batch's
-order. A hosted model's rate limit fails the cards it refuses, so lower
-`concurrency` if you see rate-limit errors.
+is how many of a batch's cards are scored at once, and how many of a run's
+side-by-side calls run at once; results keep the batch's order. A hosted
+model's rate limit fails the cards it refuses, so lower `concurrency` if you
+see rate-limit errors.
 
 Each value records the model the `ai` instance answered with and the
 prompt's version: `evaluate-` plus a hash of `prompts/evaluate.tmpl`, the

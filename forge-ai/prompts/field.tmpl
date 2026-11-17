@@ -1,26 +1,28 @@
 [[- define "field-rules" -]]
-You edit one field of a roleplay character card: "[[.Field]]". Return the field's new text[[if eq .Field "tags"]]: the tags, separated by commas[[end]].
-
-Keep every {{char}} and {{user}} macro and <START> blocks[[if not .PointOfView]], and the field's point of view and voice[[end]]. The rest of the card is context; don't move its content into this field.
-[[- if eq .Field "creator_notes"]]
-
-This field is for the player and isn't sent to the model. Where the instructions below speak of how {{char}} behaves, read it as what the player needs to know. Keep its credits, sources, and links, such as "Based on ...", and make sure what it says about the card is still true of it.
-[[- end]]
+You edit one field of a roleplay character card; the message names it. Keep every {{char}} and {{user}} macro and <START> blocks[[if not .PointOfView]], and the field's point of view and voice[[end]]. The rest of the card is context; don't move its content into the field you edit.
 [[- end]]
 
+[[- /* field.user puts what changes from field to field last, so calls on one card share the rest of the prompt. */ -]]
 [[- define "field.user" -]]
-[[- if .Instruction]]Instruction: [[.Instruction]]
-
-[[end -]]
-[[- if .Note]]Plan for this field: [[.Note]]
-
-[[end -]]
-The field to edit, "[[.Field]]":
-[[.FieldText]]
-
 The whole card, for context:
 [[.Card]]
 [[- template "context" .]]
+[[- if .Instruction]]
+
+Instruction: [[.Instruction]]
+[[- end]]
+[[- if .Note]]
+
+Plan for this field: [[.Note]]
+[[- end]]
+
+The field to edit, "[[.Field]]"[[if eq .Field "tags"]]: write the tags separated by commas[[end]]:
+[[.FieldText]]
+[[- if eq .Field "creator_notes"]]
+
+This field is for the player and isn't sent to the model. Where the instructions speak of how {{char}} behaves, read it as what the player needs to know. Keep its credits, sources, and links, such as "Based on ...", and make sure what it says about the card is still true of it.
+[[- end]]
+[[- if .PointOfView]][[template "pov-field" .]][[end]]
 [[- end]]
 
 [[- define "field.system" -]]

@@ -265,12 +265,19 @@ func TestGenerateWritesEachFieldInItsOwnCall(t *testing.T) {
 	if len(llm.requests) != 9 {
 		t.Fatalf("%d requests, want 9", len(llm.requests))
 	}
-	system := llm.requests[4]["messages"].([]any)[0].(map[string]any)["content"].(string)
-	if !strings.Contains(system, `Write its "first_mes" field now`) || !strings.Contains(system, "No em dashes.") {
-		t.Fatalf("first_mes system prompt %q", system)
+	system := func(i int) string { return llm.requests[i]["messages"].([]any)[0].(map[string]any)["content"].(string) }
+	if system(4) != system(0) || !strings.Contains(system(4), "No em dashes.") {
+		t.Fatalf("first_mes system prompt %q differs from name's %q", system(4), system(0))
 	}
-	if user := userPrompt(llm.requests[4]); !strings.Contains(user, `"name": "Ash"`) || !strings.Contains(user, `"scenario": "A dock."`) {
+	user := userPrompt(llm.requests[4])
+	if !strings.HasSuffix(user, `Write the "first_mes" field now.`) || !strings.Contains(user, "### name\n\nAsh") ||
+		!strings.Contains(user, "### scenario\n\nA dock.") {
 		t.Fatalf("first_mes call doesn't see the fields before it: %q", user)
+	}
+	// Each call's prompt is the last one's plus what it wrote, so a prefix cache reuses it.
+	before, _, _ := strings.Cut(userPrompt(llm.requests[3]), "\n\nWrite the ")
+	if !strings.HasPrefix(user, before) {
+		t.Fatalf("first_mes prompt doesn't start with scenario's:\n%s\n---\n%s", userPrompt(llm.requests[3]), user)
 	}
 	var messages []string
 	for i, p := range h.progress {

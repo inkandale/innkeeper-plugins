@@ -40,11 +40,11 @@ description = "Optional: an AI connection with quick scoring turned on. Bulk sco
 [config.properties.concurrency]
 x-advanced = true
 type = "integer"
-title = "Cards scored at once"
+title = "Model calls at once"
 minimum = 1
 maximum = 20
 default = 4
-description = "How many cards one scoring batch sends to the model at the same time. Raise it for a hosted model; lower it for a local one that runs one request at a time."
+description = "How many calls Forge sends to the model at the same time: cards in one scoring batch, and the fields or entries of a planned edit. Raise it for a hosted model; lower it for a local one that runs one request at a time."
 
 [config.properties.escalate_below]
 x-advanced = true

@@ -116,6 +116,8 @@ type run struct {
 	note string
 	// part names what this step writes, in a run of parts.
 	part string
+	// earlier is what the run's earlier steps wrote, for this step to see.
+	earlier []written
 	// template names the prompt templates, <template>.system and .user, when not the action's ID.
 	template string
 	// takes turns the model's plain-text reply into the proposal. Nil means

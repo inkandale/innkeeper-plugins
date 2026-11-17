@@ -70,8 +70,8 @@ func render(t *testing.T, p protocol.ActionRunParams, s settings) (system, user 
 		t.Fatalf("%s: %v", p.Action, err)
 	}
 	if plain {
-		if !strings.Contains(system, "between <text> and </text>") {
-			t.Errorf("%s: system prompt never asks for the reply's format:\n%s", p.Action, system)
+		if !strings.Contains(system+user, "between <text> and </text>") {
+			t.Errorf("%s: the prompt never asks for the reply's format:\n%s\n%s", p.Action, system, user)
 		}
 		return system, user, nil
 	}
@@ -312,11 +312,32 @@ func TestPromptSettingsMatchKeys(t *testing.T) {
 func TestCreatorNotesKeepCreditsAndMatchTheCard(t *testing.T) {
 	p := sampleRun(t, "tighten")
 	p.Field = "creator_notes"
-	if system, _, _ := render(t, p, settings{}); !strings.Contains(system, "isn't sent to the model") || !strings.Contains(system, "Based on") {
-		t.Errorf("tighten creator_notes lacks the player-notes rule:\n%s", system)
+	if _, user, _ := render(t, p, settings{}); !strings.Contains(user, "isn't sent to the model") || !strings.Contains(user, "Based on") {
+		t.Errorf("tighten creator_notes lacks the player-notes rule:\n%s", user)
 	}
-	if system, _, _ := render(t, sampleRun(t, "tighten"), settings{}); strings.Contains(system, "Based on") {
-		t.Errorf("tighten description carries the creator_notes rule:\n%s", system)
+	if system, user, _ := render(t, sampleRun(t, "tighten"), settings{}); strings.Contains(system+user, "Based on") {
+		t.Errorf("tighten description carries the creator_notes rule:\n%s\n%s", system, user)
+	}
+}
+
+// A server that caches prompt prefixes reuses one card's prompt across a
+// whole-card run's fields only when the fields differ at the end alone.
+func TestFieldPromptsDifferOnlyAtTheEnd(t *testing.T) {
+	for _, id := range []string{"tighten", "change-pov", "revise"} {
+		p := sampleRun(t, id)
+		sysDesc, userDesc, _ := render(t, p, settings{})
+		p.Field = "creator_notes"
+		if id == "change-pov" {
+			p.Field = "system_prompt"
+		}
+		sysOther, userOther, _ := render(t, p, settings{})
+		if sysDesc != sysOther {
+			t.Errorf("%s: system prompts differ by field:\n%s\n---\n%s", id, sysDesc, sysOther)
+		}
+		head, _, _ := strings.Cut(userDesc, `The field to edit, "description"`)
+		if !strings.HasPrefix(userOther, head) || !strings.Contains(head, "very tall orc") {
+			t.Errorf("%s: user prompts differ before the field:\n%s\n---\n%s", id, userDesc, userOther)
+		}
 	}
 	system, _, err := wholeCardRun(t, "revise").planPrompts(settings{})
 	if err != nil {
@@ -324,5 +345,29 @@ func TestCreatorNotesKeepCreditsAndMatchTheCard(t *testing.T) {
 	}
 	if !strings.Contains(system, `give "creator_notes" a note`) {
 		t.Errorf("plan doesn't ask to bring creator_notes in line:\n%s", system)
+	}
+}
+
+// The plan and the parts of a lorebook revision share everything up to what
+// each call is for, so a prefix cache reads the lorebook once per run.
+func TestReviseLorebookCallsShareTheirStart(t *testing.T) {
+	r, err := parseRun(sampleRun(t, "revise-lorebook"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	planning := *r
+	planning.template = "revise-lorebook-plan"
+	planSystem, planUser, err := planning.prompts(settings{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.part, r.note = "Entry 1", "Add winter."
+	system, user, err := r.prompts(settings{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, _, _ := strings.Cut(user, "Write: Entry 1")
+	if planSystem != system || !strings.HasPrefix(planUser, head) || !strings.Contains(head, "Brakka guards the pass") {
+		t.Fatalf("plan and entry prompts differ before their task:\n%s\n---\n%s", planUser, user)
 	}
 }

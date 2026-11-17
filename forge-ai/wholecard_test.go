@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func userPrompt(req map[string]any) string {
@@ -61,11 +63,26 @@ func TestWholeCardRunPlansThenEditsEachPlannedField(t *testing.T) {
 	}
 }
 
-func TestLaterSectionsSeeEarlierEdits(t *testing.T) {
+func TestWholeCardSectionsRunSideBySide(t *testing.T) {
 	llm, cfg := withLLM(t,
-		streamed(`{"description": "Shorten.", "personality": "Match the new description."}`),
-		streamed(`{"description": "A big orc."}`),
-		streamed(`{"personality": "Calm."}`))
+		streamed(`{"description": "Shorten.", "personality": "Match the description."}`),
+		streamed("<text>A big orc.</text>"),
+		streamed("<text>A big orc.</text>"))
+	inFlight, both := make(chan struct{}, 3), make(chan struct{})
+	var once sync.Once
+	llm.onRequest = func() {
+		inFlight <- struct{}{}
+		if len(inFlight) == 3 { // the plan and both sections
+			once.Do(func() { close(both) })
+		}
+		if len(inFlight) > 1 {
+			select {
+			case <-both:
+			case <-time.After(5 * time.Second):
+				t.Error("the sections ran one at a time")
+			}
+		}
+	}
 	h := startPlugin(t, cfg)
 	p := sampleRun(t, "tighten")
 	p.Field = ""
@@ -73,18 +90,22 @@ func TestLaterSectionsSeeEarlierEdits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m := proposalOf(t, res); m["description"] != "A big orc." || m["personality"] != "Calm." {
+	if m := proposalOf(t, res); m["description"] != "A big orc." || m["personality"] != "A big orc." {
 		t.Fatalf("proposal %v", m)
 	}
-	if len(llm.requests) != 3 {
-		t.Fatalf("%d requests, want 3", len(llm.requests))
+	var notes []string
+	for _, req := range llm.requests[1:] {
+		user := userPrompt(req)
+		if !strings.Contains(user, "A very big, very tall orc") {
+			t.Errorf("a section didn't see the card the plan saw:\n%s", user)
+		}
+		_, note, _ := strings.Cut(user, "Plan for this field: ")
+		note, _, _ = strings.Cut(note, "\n")
+		notes = append(notes, note)
 	}
-	if !strings.Contains(userPrompt(llm.requests[1]), "Plan for this field: Shorten.") ||
-		!strings.Contains(userPrompt(llm.requests[2]), "Plan for this field: Match the new description.") {
-		t.Fatal("a section didn't get its own note")
-	}
-	if !strings.Contains(userPrompt(llm.requests[2]), "A big orc.") {
-		t.Fatalf("personality's section didn't see the new description:\n%s", userPrompt(llm.requests[2]))
+	slices.Sort(notes)
+	if !slices.Equal(notes, []string{"Match the description.", "Shorten."}) {
+		t.Fatalf("section notes %q", notes)
 	}
 }
 
@@ -189,6 +210,7 @@ func TestCancelBetweenSectionsStopsTheRun(t *testing.T) {
 		streamed(`{"description": "Shorten.", "personality": "Shorten."}`),
 		streamed(`{"description": "A big orc."}`),
 		streamed(`{"personality": "Calm."}`))
+	cfg["concurrency"] = 1
 	h := startPlugin(t, cfg)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -293,14 +315,14 @@ func TestChangePOVNamesOnlyTheFieldItEdits(t *testing.T) {
 			}
 		}
 		p.Field = "system_prompt"
-		if system, _, _ = render(t, p, settings{}); !strings.Contains(system, "enforce "+pov+" person") {
-			t.Errorf("%s person on system_prompt doesn't enforce it:\n%s", pov, system)
+		if _, user, _ := render(t, p, settings{}); !strings.Contains(user, "enforce "+pov+" person") {
+			t.Errorf("%s person on system_prompt doesn't enforce it:\n%s", pov, user)
 		}
 	}
 	p := sampleRun(t, "change-pov")
 	p.Field, p.Inputs = "first_mes", json.RawMessage(`{"point_of_view": "third"}`)
-	if system, _, _ := render(t, p, settings{}); !strings.Contains(system, "omniscient narrator") {
-		t.Errorf("third person on first_mes lacks the narrator rule:\n%s", system)
+	if _, user, _ := render(t, p, settings{}); !strings.Contains(user, "omniscient narrator") {
+		t.Errorf("third person on first_mes lacks the narrator rule:\n%s", user)
 	}
 }
 

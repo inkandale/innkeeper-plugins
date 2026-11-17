@@ -19,9 +19,10 @@ You write an alternate greeting for a roleplay character/scenario card: another 
 [[- end]]
 
 [[- define "alternate-greetings.user" -]]
-Write one new alternate greeting for this card. Its "alternate_greetings" stay as they are.
-
 Current card JSON:
 [[.Card]]
 [[- template "context" .]]
+[[- template "earlier" .]]
+
+Write one new alternate greeting for this card. Its "alternate_greetings"[[if .Earlier]] and the greetings written so far[[end]] stay as they are.
 [[- end]]

@@ -6,18 +6,33 @@
 - One topic per entry. Merge entries that cover the same topic: change one and delete the rest.
 [[- end]]
 
-[[- define "revise-lorebook-intro" -]]
+[[- /* The plan and its steps share the system prompt and the start of the
+user prompt, so a server that caches prompt prefixes reads the lorebook once
+per run. What differs comes last. */ -]]
+[[- define "revise-lorebook.system" -]]
 You edit lorebooks for roleplay. An entry is inserted into the chat's context when one of its keys appears in recent messages; some apps also need one of its secondary keys. A constant entry is inserted on every turn.
-[[- end]]
 
-[[- define "revise-lorebook-plan.system" -]]
-[[template "revise-lorebook-intro"]] Plan the edit; each part is then written on its own by someone who sees your note for it, the owner's request, and the lorebook.
+An edit is planned first, then each part is written on its own by someone who sees the plan's note for it, the owner's request, and the lorebook. The message says which you're doing.
 
 ## Rules
 
 [[.Instructions]]
+[[- end]]
 
-Return one JSON object with only what changes:
+[[- define "revise-lorebook-head" -]]
+The owner's request: [[.Instruction]]
+
+Current lorebook JSON:
+[[.Lorebook]]
+[[- template "context" .]]
+[[- end]]
+
+[[- define "revise-lorebook-plan.system" -]][[template "revise-lorebook.system" .]][[end]]
+
+[[- define "revise-lorebook-plan.user" -]]
+[[template "revise-lorebook-head" .]]
+
+Plan the edit. Return one JSON object with only what changes:
 - "name": the lorebook's new name.
 - "description": a note on what to change in the lorebook's description.
 - "entries": a list of {"entry": <number>, "note": "..."} for each entry to change, and {"note": "..."} with no "entry" for each entry to add.
@@ -26,20 +41,11 @@ Return one JSON object with only what changes:
 A note says what to write, in one to three sentences, not the new text. Return only the JSON object: no code fence, no commentary.
 [[- end]]
 
-[[- define "revise-lorebook-plan.user" -]]
-The owner's request: [[.Instruction]]
+[[- define "revise-lorebook.user" -]]
+[[template "revise-lorebook-head" .]]
 
-Current lorebook JSON:
-[[.Lorebook]]
-[[- template "context" .]]
-[[- end]]
-
-[[- define "revise-lorebook.system" -]]
-[[template "revise-lorebook-intro"]]
-
-## Rules
-
-[[.Instructions]]
+Write: [[.Part]]
+Plan for it: [[.Note]]
 
 [[if eq .Field "description" -]]
 Write the lorebook's new description.
@@ -50,15 +56,4 @@ Write the whole entry as it should read after the edit.
 
 [[template "entry-format" true]]
 [[- end]]
-[[- end]]
-
-[[- define "revise-lorebook.user" -]]
-The owner's request: [[.Instruction]]
-
-Write: [[.Part]]
-Plan for it: [[.Note]]
-
-Current lorebook JSON:
-[[.Lorebook]]
-[[- template "context" .]]
 [[- end]]

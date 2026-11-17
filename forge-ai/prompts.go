@@ -34,6 +34,8 @@ type promptData struct {
 	Note string
 	// Part names what a step of revise-lorebook writes, such as "Entry 3".
 	Part string
+	// Earlier is what the run's earlier steps wrote, listed after the card.
+	Earlier []written
 	// Action and ActionInstructions describe the edit a whole-card plan is for.
 	Action             string
 	ActionInstructions string
@@ -79,7 +81,7 @@ func settingsDefaults() (protocol.SettingsDefaultsResult, error) {
 // with the owner's house style.
 func (r *run) prompts(s settings) (system, user string, err error) {
 	d := promptData{Field: r.Field, Instruction: r.Instruction, PointOfView: r.pointOfView, Count: r.count,
-		Image: r.Images.Reference != "" || r.Images.Avatar != "", Context: r.Context, Note: r.note, Part: r.part}
+		Image: r.Images.Reference != "" || r.Images.Avatar != "", Context: r.Context, Note: r.note, Part: r.part, Earlier: r.earlier}
 	switch {
 	case r.Applies == protocol.ApplyLorebook:
 		book, err := r.sentLorebook()

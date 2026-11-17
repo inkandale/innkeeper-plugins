@@ -147,6 +147,7 @@ func reviseLorebook(t *testing.T, replies ...string) (map[string]json.RawMessage
 		scripted = append(scripted, streamed(r))
 	}
 	llm, cfg := withLLM(t, scripted...)
+	cfg["concurrency"] = 1 // The parts' replies come in the steps' order.
 	h := startPlugin(t, cfg)
 	p := sampleRun(t, "revise-lorebook")
 	p.Entity.Data = json.RawMessage(threeEntries)
@@ -291,7 +292,7 @@ func TestReviseOnTagsTakesCommaText(t *testing.T) {
 	p.Field = "tags"
 	p.Entity.Data = json.RawMessage(`{"name": "Brakka", "tags": ["orc", "guard"]}`)
 	system, user, _ := render(t, p, settings{})
-	if !strings.Contains(user, "\norc, guard\n") || !strings.Contains(system, `"tags"`) {
+	if !strings.HasSuffix(user, "\norc, guard") || !strings.Contains(user, `"tags": write the tags separated by commas`) {
 		t.Fatalf("tags field prompt:\n%s\n%s", system, user)
 	}
 }

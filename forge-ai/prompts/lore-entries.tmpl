@@ -20,11 +20,12 @@ You write lorebook entries for roleplay. An entry is inserted into the chat's co
 [[- define "lore-entries.user" -]]
 The owner's request: [[.Instruction]]
 
-Write one new entry for this lorebook. Its existing entries stay as they are.
-
 Current lorebook JSON:
 [[.Lorebook]]
 [[- template "context" .]]
+[[- template "earlier" .]]
+
+Write one new entry for this lorebook. Its existing entries[[if .Earlier]] and the entries written so far[[end]] stay as they are.
 [[- end]]
 
 [[- define "entry-format" -]]

@@ -262,8 +262,8 @@ type lorebookPlan struct {
 }
 
 // reviseLorebook plans the edit in one call, then writes the description
-// and each changed or new entry in a call of its own. Deletions come last,
-// so the plan's entry numbers hold for every step.
+// and each changed or new entry in calls of their own, side by side.
+// Deletions come last, so the plan's entry numbers hold for every step.
 func (srv *server) reviseLorebook(ctx context.Context, in *instance, r *run) (*protocol.ActionRunResult, error) {
 	_ = in.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Total: 1, Message: "Planning " + r.Label})
 	var plan lorebookPlan
@@ -324,7 +324,7 @@ func (srv *server) reviseLorebook(ctx context.Context, in *instance, r *run) (*p
 	for i := range steps {
 		steps[i].message = fmt.Sprintf("%s: %s (%d of %d)", r.Label, steps[i].label, i+1, len(steps))
 	}
-	res, err := srv.runSteps(ctx, in, r, steps, []string{"Plan:\n" + planned.Raw})
+	res, err := srv.stepsAtOnce(ctx, in, r, steps, []string{"Plan:\n" + planned.Raw})
 	if err != nil {
 		return nil, err
 	}

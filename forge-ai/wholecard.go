@@ -14,8 +14,8 @@ import (
 var planLimits = action{temperature: 0.3, maxTokens: 4096}
 
 // wholeCard runs a field action on the whole card: one call plans a note per
-// field, then the action runs on each planned field in turn, against the card
-// as the fields before it left it.
+// field, then the action runs on the planned fields side by side, each
+// against the card the plan saw.
 func (srv *server) wholeCard(ctx context.Context, in *instance, r *run) (*protocol.ActionRunResult, error) {
 	_ = in.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Total: 1, Message: "Planning " + r.Label})
 	notes, planText, err := srv.plan(ctx, in, r)
@@ -31,7 +31,7 @@ func (srv *server) wholeCard(ctx context.Context, in *instance, r *run) (*protoc
 	for i := range steps {
 		steps[i].message = fmt.Sprintf("%s: %s (%d of %d)", r.Label, steps[i].label, i+1, len(steps))
 	}
-	return srv.runSteps(ctx, in, r, steps, []string{"Plan:\n" + planText})
+	return srv.stepsAtOnce(ctx, in, r, steps, []string{"Plan:\n" + planText})
 }
 
 // plan returns the model's note per field of r's, leaving out each it skips
