@@ -63,6 +63,23 @@ func TestParseObjectAfterThinkAndFence(t *testing.T) {
 	}
 }
 
+func TestParseObjectAcceptsRawLineBreaksInStrings(t *testing.T) {
+	obj, err := parseObject("```json\n{\n  \"first_mes\": \"{{user}} walks in.\n\n\t\\\"Hi,\\\" she says.\r\n\"\n}\n```")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `"{{user}} walks in.\n\n\t\"Hi,\" she says.\r\n"`; string(obj["first_mes"]) != want {
+		t.Fatalf("first_mes = %s, want %s", obj["first_mes"], want)
+	}
+}
+
+func TestParseObjectNamesTheSyntaxError(t *testing.T) {
+	_, err := parseObject("```json\n{\"first_mes\": \"{{user}} says \"hi\" to {{char}}.\"}\n```")
+	if err == nil || !strings.Contains(err.Error(), "invalid character 'h' after object key:value pair") {
+		t.Fatalf("err = %v, want the decoder's reason", err)
+	}
+}
+
 func TestStartedItemsOnPartialOutput(t *testing.T) {
 	cases := map[string]int{
 		"":                           0,

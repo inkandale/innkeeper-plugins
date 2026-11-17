@@ -39,7 +39,7 @@ func visible(s string) string {
 func objectStarts(v string) func(func(string) bool) {
 	return func(yield func(string) bool) {
 		for i := strings.IndexByte(v, '{'); i >= 0; {
-			if !yield(v[i:]) {
+			if !yield(escapeRawControls(v[i:])) {
 				return
 			}
 			next := strings.IndexByte(v[i+1:], '{')
@@ -49,6 +49,38 @@ func objectStarts(v string) func(func(string) bool) {
 			i += 1 + next
 		}
 	}
+}
+
+// escapeRawControls escapes the line breaks and tabs models often write raw
+// inside JSON strings, where JSON forbids them.
+func escapeRawControls(s string) string {
+	if !strings.ContainsAny(s, "\n\r\t") {
+		return s
+	}
+	var b strings.Builder
+	inString, escaped := false, false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case escaped:
+			escaped = false
+		case inString && c == '\\':
+			escaped = true
+		case c == '"':
+			inString = !inString
+		case inString && c == '\n':
+			b.WriteString(`\n`)
+			continue
+		case inString && c == '\r':
+			b.WriteString(`\r`)
+			continue
+		case inString && c == '\t':
+			b.WriteString(`\t`)
+			continue
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
 }
 
 // startedKeys lists the top-level keys of the JSON object the output has
@@ -88,6 +120,8 @@ func keysFrom(s string) []string {
 func parseObject(output string) (map[string]json.RawMessage, error) {
 	v := strings.TrimSpace(visible(output))
 	cutOff := false
+	// The start that decodes furthest is the model's object, not a {{macro}}.
+	var syntaxErr *json.SyntaxError
 	for start := range objectStarts(v) {
 		var obj map[string]json.RawMessage
 		err := json.NewDecoder(strings.NewReader(start)).Decode(&obj)
@@ -95,12 +129,19 @@ func parseObject(output string) (map[string]json.RawMessage, error) {
 			return obj, nil
 		}
 		cutOff = cutOff || errors.Is(err, io.ErrUnexpectedEOF)
+		var se *json.SyntaxError
+		if errors.As(err, &se) && (syntaxErr == nil || se.Offset > syntaxErr.Offset) {
+			syntaxErr = se
+		}
 	}
 	if cutOff {
 		return nil, errors.New("the model's reply stopped before its JSON object ended, most likely at the token limit; raise Max tokens under Advanced in Forge's settings")
 	}
 	if len(v) > 150 {
 		v = v[:150] + "…"
+	}
+	if syntaxErr != nil {
+		return nil, fmt.Errorf("the model didn't return valid JSON (%v): %q", syntaxErr, v)
 	}
 	return nil, fmt.Errorf("the model didn't return a JSON object: %q", v)
 }
