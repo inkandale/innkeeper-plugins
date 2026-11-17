@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
@@ -188,6 +189,35 @@ func TestImportURL(t *testing.T) {
 	wantInvalid(t, err, "over 8 MiB")
 	_, err = fetchSkill(ctx, "file:///etc/passwd")
 	wantInvalid(t, err, "isn't an http or https URL")
+}
+
+func TestImportURLFetchesReferencedFiles(t *testing.T) {
+	md := "---\nname: college\ndescription: d\n---\nLoad `references/a.md`, see [notes](notes.md#top) and `missing/x.md`, " +
+		"never `../secret.md`, `logo.png`, or `{{user}}`."
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/college/SKILL.md":
+			w.Write([]byte(md))
+		case "/college/references/a.md":
+			w.Write([]byte("A"))
+		case "/college/notes.md":
+			w.Write([]byte("N"))
+		case "/college/logo.png":
+			w.Write([]byte("\x89PNG\x00"))
+		case "/secret.md":
+			t.Error("fetched a file outside the skill folder")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+	s, err := fetchSkill(context.Background(), ts.URL+"/college/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := map[string]string{"references/a.md": "A", "notes.md": "N"}; !maps.Equal(s.Files, want) {
+		t.Fatalf("files = %v, want %v", s.Files, want)
+	}
 }
 
 func TestSkillCheckRefusesBadFiles(t *testing.T) {

@@ -245,9 +245,9 @@ func parseZip(b []byte) (skill, error) {
 	return s, s.check()
 }
 
-// fetchSkill downloads a SKILL.md or a zip. Private and loopback addresses
-// are allowed, since skills may live on the owner's LAN; importing needs
-// write access in the core.
+// fetchSkill downloads a SKILL.md, with the reference files it mentions, or
+// a zip. Private and loopback addresses are allowed, since skills may live
+// on the owner's LAN; importing needs write access in the core.
 func fetchSkill(ctx context.Context, raw string) (skill, error) {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
@@ -255,23 +255,77 @@ func fetchSkill(ctx context.Context, raw string) (skill, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
-	if err != nil {
-		return skill{}, protocol.InvalidParams(err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return skill{}, protocol.InvalidParams(fmt.Errorf("fetch %s: %v", raw, err))
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return skill{}, protocol.InvalidParams(fmt.Errorf("fetch %s: %s", raw, resp.Status))
-	}
-	b, err := readUpload(resp.Body)
+	b, err := download(ctx, raw)
 	if err != nil {
 		return skill{}, err
 	}
-	return parseUpload(b)
+	if b == nil {
+		return skill{}, protocol.InvalidParams(fmt.Errorf("fetch %s: 404 Not Found", raw))
+	}
+	s, err := parseUpload(b)
+	if err != nil || bytes.HasPrefix(b, []byte("PK\x03\x04")) {
+		return s, err
+	}
+	if err := fetchReferences(ctx, u, &s); err != nil {
+		return skill{}, err
+	}
+	return s, s.check()
+}
+
+// referencePattern finds file paths a SKILL.md mentions, in backticks or as
+// a Markdown link target, as the Agent Skills spec has skills refer to them.
+var referencePattern = regexp.MustCompile("`([^`\\s]+\\.[A-Za-z0-9]+)`|\\]\\(([^)\\s]+)\\)")
+
+// fetchReferences downloads the text files s's instructions mention, relative
+// to the SKILL.md at base. A mention that isn't a file there, such as an
+// example name, is skipped.
+func fetchReferences(ctx context.Context, base *url.URL, s *skill) error {
+	for _, m := range referencePattern.FindAllStringSubmatch(s.Body, -1) {
+		p, _, _ := strings.Cut(m[1]+m[2], "#")
+		p = path.Clean(p)
+		if _, seen := s.Files[p]; seen || !localPath(p) || p == "SKILL.md" || strings.Contains(p, ":") {
+			continue
+		}
+		ref, err := base.Parse(p)
+		if err != nil {
+			continue
+		}
+		b, err := download(ctx, ref.String())
+		if err != nil {
+			return err
+		}
+		if b == nil || !isText(b) {
+			continue
+		}
+		if len(s.Files) == maxFiles {
+			return protocol.InvalidParams(fmt.Errorf("skill %s mentions more than %d reference files", s.Name, maxFiles))
+		}
+		if s.Files == nil {
+			s.Files = map[string]string{}
+		}
+		s.Files[p] = string(b)
+	}
+	return nil
+}
+
+// download gets raw, or nil for a 404.
+func download(ctx context.Context, raw string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
+	if err != nil {
+		return nil, protocol.InvalidParams(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, protocol.InvalidParams(fmt.Errorf("fetch %s: %v", raw, err))
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, protocol.InvalidParams(fmt.Errorf("fetch %s: %s", raw, resp.Status))
+	}
+	return readUpload(resp.Body)
 }
 
 // readUpload reads r, refusing more than maxUpload bytes.
