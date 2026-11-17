@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -212,6 +213,16 @@ func label(key string) string {
 func progress(conn *protocol.Conn, r *run) func(string) {
 	if r.appends != nil {
 		return itemProgress(conn, r)
+	}
+	if r.fieldRun() {
+		announced := false
+		return func(output string) {
+			if !announced && strings.TrimSpace(visible(output)) != "" {
+				announced = true
+				_ = conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Total: 1,
+					Message: fmt.Sprintf("Writing %s (1 of 1)", label(r.Field))})
+			}
+		}
 	}
 	keys := r.writes()
 	var announced []string

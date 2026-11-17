@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"slices"
 	"strings"
 	"testing"
@@ -68,15 +69,34 @@ func TestParseObjectAcceptsRawLineBreaksInStrings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := `"{{user}} walks in.\n\n\t\"Hi,\" she says.\r\n"`; string(obj["first_mes"]) != want {
-		t.Fatalf("first_mes = %s, want %s", obj["first_mes"], want)
+	wantField(t, obj, "first_mes", "{{user}} walks in.\n\n\t\"Hi,\" she says.\r\n")
+}
+
+func TestParseObjectAcceptsUnescapedDialogueQuotes(t *testing.T) {
+	obj, err := parseObject("```json\n{\n \"first_mes\": \"She jogs past. \"Hey!\" she calls to {{user}}.\n\nShe stops.\"\n}\n```")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantField(t, obj, "first_mes", "She jogs past. \"Hey!\" she calls to {{user}}.\n\nShe stops.")
+}
+
+func TestParseObjectRefusesARepairThatDropsText(t *testing.T) {
+	for _, reply := range []string{
+		"```json\n{\"first_mes\": \"\"Wait\", he says. She doesn't.\"}\n```",
+		"```json\n{\"first_mes\": \"She runs.\n\nShe sto",
+	} {
+		_, err := parseObject(reply)
+		if err == nil || !strings.Contains(err.Error(), "didn't return valid JSON (invalid character") {
+			t.Fatalf("%q: err = %v, want the decoder's reason", reply, err)
+		}
 	}
 }
 
-func TestParseObjectNamesTheSyntaxError(t *testing.T) {
-	_, err := parseObject("```json\n{\"first_mes\": \"{{user}} says \"hi\" to {{char}}.\"}\n```")
-	if err == nil || !strings.Contains(err.Error(), "invalid character 'h' after object key:value pair") {
-		t.Fatalf("err = %v, want the decoder's reason", err)
+func wantField(t *testing.T, obj map[string]json.RawMessage, key, want string) {
+	t.Helper()
+	var got string
+	if err := json.Unmarshal(obj[key], &got); err != nil || got != want {
+		t.Fatalf("%s = %s (%v), want %q", key, obj[key], err, want)
 	}
 }
 

@@ -9,6 +9,7 @@ require (
 	github.com/abadojack/whatlanggo v1.0.1
 	github.com/inkandale/innkeeper v0.0.0-20261112003736-cc06bb14f315
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/kaptinlin/jsonrepair v0.4.10
 	github.com/mozilla-ai/any-llm-go v0.9.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/image v0.46.0
@@ -27,6 +28,7 @@ require (
 	github.com/danielgtaylor/huma/v2 v2.39.1 // indirect
 	github.com/devsisters/go-diff3 v0.0.0-20250819115249-1cdef3ea7ce0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260601182631-00ed12fed2a6 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect

@@ -136,6 +136,8 @@ The prompts are in `prompts/`, as `text/template` files with `[[ ]]`
 delimiters so `{{char}}` and `{{user}}` reach the model as written. The
 generate, revise, and evaluate prompts come from character-card-generator
 at commit `0b2f57e`, changed to ask for JSON keyed by CCv3 data keys.
+An action on one field, such as Revise or Tighten, asks for the field's
+plain text instead, so long prose never has to be escaped as JSON.
 
 Each prompt's rules are an instructions block, `[[define "<key>.instructions"]]`.
 The Prompts tab shows each block as its default.

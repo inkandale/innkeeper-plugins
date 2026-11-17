@@ -173,7 +173,7 @@ func (r *run) writes() []string {
 		return r.evaluates.keys
 	case r.edits != nil:
 		return r.edits.keys
-	case len(r.Fields) > 0:
+	case r.fieldRun():
 		return []string{r.Field}
 	case r.pointOfView == "scenario":
 		return append(slices.Clone(generatedKeys), "creator_notes")
@@ -224,9 +224,36 @@ func typed(key string, raw json.RawMessage) (any, error) {
 	return s, nil
 }
 
+// fieldRun reports whether the run writes one card field, which the model
+// returns as plain text so prose never has to survive JSON escaping.
+func (r *run) fieldRun() bool {
+	return r.appends == nil && r.evaluates == nil && r.edits == nil && len(r.Fields) > 0
+}
+
+// fieldReply reads a field run's plain-text reply as the field's value. A
+// reply that is a JSON object holding the field, the old contract, is read
+// as JSON, and only the field is kept.
+func (r *run) fieldReply(output string) (map[string]json.RawMessage, error) {
+	text := plainText(output)
+	var obj map[string]json.RawMessage
+	if json.Unmarshal([]byte(text), &obj) == nil && obj[r.Field] != nil {
+		return map[string]json.RawMessage{r.Field: obj[r.Field]}, nil
+	}
+	raw, err := json.Marshal(text)
+	return map[string]json.RawMessage{r.Field: raw}, err
+}
+
 // result turns the model's output into the reply.
 func (r *run) result(output string) (protocol.ActionRunResult, error) {
 	res := protocol.ActionRunResult{Raw: output}
+	if r.fieldRun() {
+		obj, err := r.fieldReply(output)
+		if err != nil {
+			return res, err
+		}
+		res.Proposal, err = r.proposal(obj)
+		return res, err
+	}
 	obj, err := parseObject(output)
 	if err != nil {
 		return res, err

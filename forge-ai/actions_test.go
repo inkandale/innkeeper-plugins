@@ -231,10 +231,23 @@ func TestNullMeansUnchanged(t *testing.T) {
 func TestTagsAsCommaSeparatedText(t *testing.T) {
 	p := sampleRun(t, "revise")
 	p.Field = "tags"
-	m := proposalOf(t, result(t, p, `{"tags": "orc, guard ,, brother"}`))
-	tags, _ := m["tags"].([]any)
-	if len(tags) != 3 || tags[1] != "guard" || tags[2] != "brother" {
-		t.Fatalf("tags = %v", m["tags"])
+	for _, reply := range []string{`{"tags": "orc, guard ,, brother"}`, "orc, guard ,, brother"} {
+		m := proposalOf(t, result(t, p, reply))
+		tags, _ := m["tags"].([]any)
+		if len(tags) != 3 || tags[1] != "guard" || tags[2] != "brother" {
+			t.Fatalf("%s: tags = %v", reply, m["tags"])
+		}
+	}
+}
+
+func TestFieldActionTakesPlainTextWithDialogueQuotes(t *testing.T) {
+	p := sampleRun(t, "revise")
+	p.Field = "first_mes"
+	greeting := "She jogs past {{user}}. \"Wait\", she calls. \"Hey!\"\n\n*She stops.*"
+	for _, reply := range []string{greeting, "<think>plan</think>\n```\n" + greeting + "\n```"} {
+		if got := proposalOf(t, result(t, p, reply))["first_mes"]; got != greeting {
+			t.Fatalf("%q: first_mes = %q", reply, got)
+		}
 	}
 }
 

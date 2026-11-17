@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
+
+	"github.com/kaptinlin/jsonrepair"
 )
 
 // visible is the model's output without reasoning. A <think> block is
@@ -39,7 +42,7 @@ func visible(s string) string {
 func objectStarts(v string) func(func(string) bool) {
 	return func(yield func(string) bool) {
 		for i := strings.IndexByte(v, '{'); i >= 0; {
-			if !yield(escapeRawControls(v[i:])) {
+			if !yield(v[i:]) {
 				return
 			}
 			next := strings.IndexByte(v[i+1:], '{')
@@ -49,38 +52,6 @@ func objectStarts(v string) func(func(string) bool) {
 			i += 1 + next
 		}
 	}
-}
-
-// escapeRawControls escapes the line breaks and tabs models often write raw
-// inside JSON strings, where JSON forbids them.
-func escapeRawControls(s string) string {
-	if !strings.ContainsAny(s, "\n\r\t") {
-		return s
-	}
-	var b strings.Builder
-	inString, escaped := false, false
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		switch {
-		case escaped:
-			escaped = false
-		case inString && c == '\\':
-			escaped = true
-		case c == '"':
-			inString = !inString
-		case inString && c == '\n':
-			b.WriteString(`\n`)
-			continue
-		case inString && c == '\r':
-			b.WriteString(`\r`)
-			continue
-		case inString && c == '\t':
-			b.WriteString(`\t`)
-			continue
-		}
-		b.WriteByte(c)
-	}
-	return b.String()
 }
 
 // startedKeys lists the top-level keys of the JSON object the output has
@@ -128,10 +99,16 @@ func parseObject(output string) (map[string]json.RawMessage, error) {
 		if err == nil {
 			return obj, nil
 		}
-		cutOff = cutOff || errors.Is(err, io.ErrUnexpectedEOF)
+		if errors.Is(err, io.ErrUnexpectedEOF) {
+			cutOff = true
+			continue
+		}
 		var se *json.SyntaxError
 		if errors.As(err, &se) && (syntaxErr == nil || se.Offset > syntaxErr.Offset) {
 			syntaxErr = se
+		}
+		if obj := repairObject(start); obj != nil {
+			return obj, nil
 		}
 	}
 	if cutOff {
@@ -144,6 +121,47 @@ func parseObject(output string) (map[string]json.RawMessage, error) {
 		return nil, fmt.Errorf("the model didn't return valid JSON (%v): %q", syntaxErr, v)
 	}
 	return nil, fmt.Errorf("the model didn't return a JSON object: %q", v)
+}
+
+// plainText is a plain-text reply without reasoning or a code fence around
+// all of it.
+func plainText(output string) string {
+	text := strings.TrimSpace(visible(output))
+	if fenced, ok := strings.CutPrefix(text, "```"); ok {
+		if _, body, ok := strings.Cut(fenced, "\n"); ok {
+			if body, ok = strings.CutSuffix(strings.TrimRight(body, " \t\n"), "```"); ok {
+				text = strings.TrimSpace(body)
+			}
+		}
+	}
+	return text
+}
+
+// fieldName matches the top-level keys Forge asks a model for, such as first_mes.
+var fieldName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// repairObject fixes unescaped quotes and raw line breaks in a model's JSON
+// object, or returns nil. A repair that would silently drop text is refused:
+// closing a reply cut off before its final }, or turning prose into a key,
+// as with "Wait", he says.
+func repairObject(start string) map[string]json.RawMessage {
+	if !strings.HasSuffix(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(start), "```")), "}") {
+		return nil
+	}
+	repaired, err := jsonrepair.Repair(start)
+	if err != nil {
+		return nil
+	}
+	var obj map[string]json.RawMessage
+	if json.Unmarshal([]byte(repaired), &obj) != nil {
+		return nil
+	}
+	for key := range obj {
+		if !fieldName.MatchString(key) {
+			return nil
+		}
+	}
+	return obj
 }
 
 // startedItems counts the items the output has begun in the list under key,

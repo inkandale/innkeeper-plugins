@@ -1,5 +1,5 @@
 [[- define "field-rules" -]]
-You edit one field of a roleplay character card: "[[.Field]]". Return one JSON object with the single key "[[.Field]]", whose value is the new text[[if eq .Field "tags"]]: the tags, separated by commas[[end]].
+You edit one field of a roleplay character card: "[[.Field]]". Return the field's new text[[if eq .Field "tags"]]: the tags, separated by commas[[end]].
 
 Keep every {{char}} and {{user}} macro and <START> blocks[[if not .PointOfView]], and the field's point of view and voice[[end]]. The rest of the card is context; don't move its content into this field.
 [[- if eq .Field "creator_notes"]]
@@ -28,7 +28,11 @@ The whole card, for context:
 
 [[.Instructions]]
 
-Return only the JSON object: no code fence, no commentary.
+[[template "plain-text"]]
+[[- end]]
+
+[[- define "plain-text" -]]
+Return only the new text, exactly as it should appear in the field: no JSON, no code fence, no commentary.
 [[- end]]
 
 [[- define "tighten.instructions" -]]
