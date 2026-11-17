@@ -222,9 +222,12 @@ Import takes a `SKILL.md` or a zip of a skill folder, uploaded or by an
 `http` or `https` URL. A zip is recognized by its content, not its name.
 Importing a skill replaces the one with the same name.
 
-The skills in [`skills/`](skills) are published as zips. To import one, use
-its URL, such as
-`https://github.com/inkandale/innkeeper-plugins/releases/download/skills/card-craft.zip`.
+A `SKILL.md` imported by URL brings the reference files it mentions by
+relative path, in backticks or as a link, such as `references/fields.md`.
+Each is fetched relative to the `SKILL.md`'s URL; a mention that isn't a
+file there is skipped. To import a skill from a Git host, link its raw
+`SKILL.md`, such as
+`https://raw.githubusercontent.com/inkandale/innkeeper-plugins/main/forge-ai/skills/card-craft/SKILL.md`.
 
 | Limit | Value |
 |---|---|
