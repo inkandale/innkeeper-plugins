@@ -38,6 +38,40 @@ The actions fall into four groups by what they do.
 | Judge | `evaluate` | a card | Reports a score, six dimension scores, contradictions, misplaced content, and suggestions |
 | Judge | `evaluate-lorebook` (Evaluate) | a lorebook | Reports a score, five dimension scores (`triggers`, `consistency`, `focus`, `usefulness`, `token_efficiency`), contradictions, problems in entries, and suggestions. Stores no scores |
 
+### Calls to the model
+
+The model writes prose as plain text, one part per call, and Forge builds
+the JSON, so dialogue quotes and line breaks never need escaping. Only
+short structured replies are JSON: a plan and an evaluation.
+
+| Action | Calls |
+|---|---|
+| `generate` | One per field, in order: `name`, `description`, `personality`, `scenario`, `first_mes`, `mes_example`, `tags`, `system_prompt`, `post_history_instructions`, and for a scenario card `creator_notes`. Each sees the fields before it |
+| An edit on one field | One |
+| An edit on the whole card | A plan, then one per field it gives a note |
+| `alternate-greetings`, `lore-entries` | One per greeting or entry, each seeing the ones before it |
+| `revise-lorebook` | A plan, then one for the description and one per entry to change or add |
+| `evaluate`, `evaluate-lorebook` | One, answered in JSON |
+
+Each call sends the action's instructions and the card or lorebook again,
+so a run of many parts costs more input tokens than one call did.
+
+Tags come back separated by commas. A lore entry comes back as header
+lines, then its content:
+
+```text
+Title: The pass
+Keys: Iron Pass, the pass
+Secondary keys: winter
+Constant: no
+
+A narrow road through the mountains.
+```
+
+Only `revise-lorebook` asks for `Secondary keys` and `Constant`. A header
+left out or empty leaves that property as it was, or at its default in a
+new entry.
+
 An edit on the whole card runs in two steps:
 
 1. One call reads the whole card, the owner's direction, and the action's
@@ -62,8 +96,11 @@ number, `secondary_keys`, and `constant`. `evaluate-lorebook`'s findings sit
 under Entries and name the entries they're about.
 
 `revise-lorebook` comes before `lore-entries`, so the core's Reforge box
-and a report's Refine run it. The model returns only what changes. A
-changed entry keeps every property the model didn't set, so `id`,
+and a report's Refine run it. Its plan names only what changes: a new
+name, a note for the description, a note per entry to change or add, and
+the entries to delete. Deletions apply after every other part, so the
+plan's entry numbers hold throughout. A changed entry keeps every property
+the model didn't set, so `id`,
 `insertion_order`, and `extensions` survive. New entries get the same
 defaults as `lore-entries` and need keys and content. An unknown entry
 number is ignored, and a run that changes nothing proposes the lorebook
@@ -135,15 +172,13 @@ versions.
 The prompts are in `prompts/`, as `text/template` files with `[[ ]]`
 delimiters so `{{char}}` and `{{user}}` reach the model as written. The
 generate, revise, and evaluate prompts come from character-card-generator
-at commit `0b2f57e`, changed to ask for JSON keyed by CCv3 data keys.
-An action on one field, such as Revise or Tighten, asks for the field's
-plain text instead, so long prose never has to be escaped as JSON.
+at commit `0b2f57e`, changed to write one CCv3 field per call.
 
 Each prompt's rules are an instructions block, `[[define "<key>.instructions"]]`.
 The Prompts tab shows each block as its default.
 
 - An override replaces only the instructions. The frame around them, which
-  holds the JSON format and the card, stays fixed, so an override cannot
+  holds the reply's format and the card, stays fixed, so an override cannot
   change the reply's shape.
 - An empty override means no instructions.
 - A block left unchanged follows the plugin's default as it improves. Reset

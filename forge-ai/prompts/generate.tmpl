@@ -1,9 +1,9 @@
 [[- define "generate.system" -]]
 [[.Instructions]]
 
-Return one JSON object with exactly these keys, in this order: [[.Keys]].
+The card is written one field at a time. Write its "[[.Field]]" field now, as the Output Format above describes it[[if eq .Field "tags"]], separated by commas[[end]].[[if .Card]] Keep it consistent with the fields already written.[[end]]
 
-[[template "json-only"]]
+[[template "plain-text"]]
 [[- end]]
 
 [[- define "generate-first.instructions" -]]
@@ -218,6 +218,11 @@ If the concept names the character, use that name. Otherwise generate a unique, 
 [[- if .Image]]
 
 An image of the character is attached. Match their appearance to it.
+[[- end]]
+[[- if .Card]]
+
+The card so far:
+[[.Card]]
 [[- end]]
 [[- template "context" .]]
 [[- end]]

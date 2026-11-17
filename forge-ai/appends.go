@@ -13,19 +13,18 @@ import (
 // appender is how an action adds the model's items to a list in the
 // entity's data, keeping the items already there.
 type appender struct {
-	key  string // the data key the model returns and the list grows under
 	item string // one item, in progress messages
-	// merge is the draft with the model's items added, or the draft
-	// unchanged when none survive.
-	merge func(r *run, raw json.RawMessage) (json.RawMessage, error)
+	// take is the draft with the item the model wrote as plain text added,
+	// or the draft unchanged when it doesn't survive.
+	take func(r *run, text string) (json.RawMessage, error)
 	// existing is the list for the prompt, beside a card. Nil sends none.
 	existing func(r *run) ([]string, error)
 }
 
-var greetingsAppender = &appender{key: "alternate_greetings", item: "greeting", merge: (*run).withGreetings,
+var greetingsAppender = &appender{item: "greeting", take: (*run).withGreeting,
 	existing: (*run).greetings}
 
-var entriesAppender = &appender{key: "entries", item: "entry", merge: (*run).withEntries}
+var entriesAppender = &appender{item: "entry", take: (*run).withEntryText}
 
 // greetings is the draft's alternate greetings.
 func (r *run) greetings() ([]string, error) {
@@ -38,27 +37,17 @@ func (r *run) greetings() ([]string, error) {
 	return g, nil
 }
 
-// withGreetings adds the model's new greetings after the draft's, less
-// blanks and repeats.
-func (r *run) withGreetings(raw json.RawMessage) (json.RawMessage, error) {
+// withGreeting adds the model's new greeting after the draft's, unless it's
+// blank or a repeat.
+func (r *run) withGreeting(text string) (json.RawMessage, error) {
 	greetings, err := r.greetings()
 	if err != nil {
 		return nil, err
 	}
-	var added []string
-	if err := json.Unmarshal(raw, &added); err != nil {
-		return nil, errors.New("the model's alternate_greetings isn't a list of text")
-	}
-	n := len(greetings)
-	for _, g := range added {
-		if g = strings.TrimSpace(g); g != "" && !slices.Contains(greetings, g) {
-			greetings = append(greetings, g)
-		}
-	}
-	if len(greetings) == n {
+	if text = strings.TrimSpace(text); text == "" || slices.Contains(greetings, text) {
 		return encode(r.draft)
 	}
-	return r.draftWith("alternate_greetings", greetings)
+	return r.draftWith("alternate_greetings", append(greetings, text))
 }
 
 // briefEntry is the part of a lore entry the model reads and writes.
@@ -124,24 +113,36 @@ func (r *run) sentLorebook() (map[string]any, error) {
 		return nil, err
 	}
 	book["entries"] = briefEntries(list)
-	if r.evaluates != nil || r.edits != nil {
+	if r.reviews {
 		book["entries"] = reviewedEntries(list)
 	}
 	return book, nil
 }
 
-// withEntries adds the model's new entries after the draft's, which keep
-// their bytes. A new entry is dropped when one of its keys is an earlier
-// entry's first key or more than half its keys are taken; otherwise it
-// loses only its taken keys. Keys compare ignoring case.
-func (r *run) withEntries(raw json.RawMessage) (json.RawMessage, error) {
+// withEntryText adds the entry the model wrote in the entry-format layout.
+func (r *run) withEntryText(text string) (json.RawMessage, error) {
+	ed := parseEntryText(text)
+	var b briefEntry
+	if ed.Comment != nil {
+		b.Comment = *ed.Comment
+	}
+	if ed.Keys != nil {
+		b.Keys = *ed.Keys
+	}
+	if ed.Content != nil {
+		b.Content = *ed.Content
+	}
+	return r.withEntries([]briefEntry{b})
+}
+
+// withEntries adds new entries after the draft's, which keep their bytes.
+// A new entry is dropped when one of its keys is an earlier entry's first
+// key or more than half its keys are taken; otherwise it loses only its
+// taken keys. Keys compare ignoring case.
+func (r *run) withEntries(added []briefEntry) (json.RawMessage, error) {
 	list, err := r.entries()
 	if err != nil {
 		return nil, err
-	}
-	var added []briefEntry
-	if err := json.Unmarshal(raw, &added); err != nil {
-		return nil, fmt.Errorf("the model's entries: %w", err)
 	}
 	taken, first := map[string]bool{}, map[string]bool{}
 	note := func(keys []string) {

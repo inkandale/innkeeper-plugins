@@ -1,28 +1,41 @@
 [[- define "lore-entries.instructions" -]]
-- Write the entries the owner asks for, drawn from the attached cards and the lorebook. Keep names, relationships, and facts consistent with them.
+- Write an entry the owner asks for, drawn from the attached cards and the lorebook. Keep names, relationships, and facts consistent with them.
 - One topic per entry: a person, place, faction, object, custom, or event.
-- "comment": a short title for the entry.
-- "keys": 1 to 4 words or names a chat would use when the topic comes up, including common variants. Never a key an existing entry already has.
-- "content": 1 to 3 short paragraphs in third person, present tense, stating facts the model needs to portray the topic. No dialogue, no {{user}} actions.
-- Don't repeat what the existing entries already cover.
+- Title: a short title for the entry.
+- Keys: 1 to 4 words or names a chat would use when the topic comes up, including common variants. Never a key an existing entry already has.
+- Content: 1 to 3 short paragraphs in third person, present tense, stating facts the model needs to portray the topic. No dialogue, no {{user}} actions.
+- Don't repeat what the existing entries already cover, including ones just written.
 [[- end]]
 
 [[- define "lore-entries.system" -]]
-You write lorebook entries for roleplay. An entry is inserted into the chat's context when one of its keys appears in recent messages. Return one JSON object with the single key "entries", a list of the new entries only, each {"comment": "...", "keys": ["..."], "content": "..."}.
+You write lorebook entries for roleplay. An entry is inserted into the chat's context when one of its keys appears in recent messages. Write one new entry.
 
 ## Rules
 
 [[.Instructions]]
 
-Return only the JSON object: no code fence, no commentary. "comment" and "content" are strings; "keys" is an array of strings.
+[[template "entry-format" false]]
 [[- end]]
 
 [[- define "lore-entries.user" -]]
 The owner's request: [[.Instruction]]
 
-Write [[.Count]] new entries for this lorebook. Its existing entries stay as they are.
+Write one new entry for this lorebook. Its existing entries stay as they are.
 
 Current lorebook JSON:
 [[.Lorebook]]
 [[- template "context" .]]
+[[- end]]
+
+[[- define "entry-format" -]]
+Return only the entry, laid out like this, with no code fence or commentary:
+
+Title: a short title
+Keys: keys, separated by commas
+[[- if .]]
+Secondary keys: keys, separated by commas
+Constant: yes or no
+[[- end]]
+
+The content.
 [[- end]]

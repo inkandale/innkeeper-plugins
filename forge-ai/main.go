@@ -123,8 +123,8 @@ func (srv *server) run(ctx context.Context, in *instance, params json.RawMessage
 	if in.err != nil {
 		return nil, in.err
 	}
-	if r.WholeCard && r.Field == "" {
-		return srv.wholeCard(ctx, in, r)
+	if r.parts != nil && r.Field == "" {
+		return r.parts(srv, ctx, in, r)
 	}
 	return srv.perform(ctx, in, r, true, func() func(string) { return progress(in.conn, r) })
 }
@@ -185,7 +185,7 @@ func (srv *server) perform(ctx context.Context, in *instance, r *run, offerTools
 		return nil, err
 	}
 	if r.evaluates != nil && r.evaluates.enriches {
-		if res.Values, res.Meta, err = reportValues(in.settings, r.model, res.Report); err != nil {
+		if res.Values, res.Meta, err = reportValues(in.settings, r.action, r.model, res.Report); err != nil {
 			return nil, err
 		}
 	}
@@ -198,7 +198,7 @@ var labels = map[string]string{"name": "Name", "description": "Description", "pe
 	"system_prompt": "System prompt", "post_history_instructions": "Post-history instructions",
 	"creator_notes": "Creator notes", "summary": "Summary", "overall_score": "Score", "card_type": "Card type",
 	"dimensions": "Dimensions", "contradictions": "Contradictions", "misplaced_content": "Misplaced content",
-	"problems": "Problems", "suggestions": "Suggestions", "entries": "Entries", "removed": "Removed entries"}
+	"problems": "Problems", "suggestions": "Suggestions"}
 
 // label names a card key in progress messages.
 func label(key string) string {
@@ -211,10 +211,7 @@ func label(key string) string {
 // progress returns a callback for one request that sends one progress
 // message per key of the run's as the model starts writing it.
 func progress(conn *protocol.Conn, r *run) func(string) {
-	if r.appends != nil {
-		return itemProgress(conn, r)
-	}
-	if r.fieldRun() {
+	if r.takes != nil {
 		announced := false
 		return func(output string) {
 			if !announced && strings.TrimSpace(visible(output)) != "" {
@@ -236,18 +233,6 @@ func progress(conn *protocol.Conn, r *run) func(string) {
 			_ = conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Done: int64(len(announced)),
 				Total: int64(len(keys)), Message: fmt.Sprintf("Writing %s (%d of %d)", label(key), len(announced)+1, len(keys))})
 			announced = append(announced, key)
-		}
-	}
-}
-
-// itemProgress returns a callback for one request that sends one progress
-// message per item, up to the run's count, as the model starts writing it.
-func itemProgress(conn *protocol.Conn, r *run) func(string) {
-	announced := 0
-	return func(output string) {
-		for n := min(startedItems(output, r.appends.key), r.count); announced < n; announced++ {
-			_ = conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Done: int64(announced),
-				Total: int64(r.count), Message: fmt.Sprintf("Writing %s %d of %d", r.appends.item, announced+1, r.count)})
 		}
 	}
 }

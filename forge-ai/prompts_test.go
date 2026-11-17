@@ -49,15 +49,31 @@ func sampleRun(t *testing.T, id string) protocol.ActionRunParams {
 	return p
 }
 
+// render is the prompts of p's first call to the model, and the JSON keys
+// its reply holds: none when the reply is plain text.
 func render(t *testing.T, p protocol.ActionRunParams, s settings) (system, user string, keys []string) {
 	t.Helper()
 	in, err := parseRun(p)
 	if err != nil {
 		t.Fatalf("%s: %v", p.Action, err)
 	}
+	plain := in.takes != nil || in.parts != nil
+	switch {
+	case in.parts == nil || in.Field != "":
+	case in.Applies == protocol.ApplyNew:
+		in.Field = in.writes()[0]
+	case in.reviews:
+		in.part, in.note = "Entry 1", "Shorten it."
+	}
 	system, user, err = in.prompts(s)
 	if err != nil {
 		t.Fatalf("%s: %v", p.Action, err)
+	}
+	if plain {
+		if !strings.Contains(system, "Return only the") {
+			t.Errorf("%s: system prompt never asks for the reply's format:\n%s", p.Action, system)
+		}
+		return system, user, nil
 	}
 	return system, user, in.writes()
 }
@@ -83,9 +99,6 @@ func TestEveryActionRenders(t *testing.T) {
 		if a.Applies == protocol.ApplyLorebook && !strings.Contains(user, "Brakka guards the pass & the gate.") {
 			t.Errorf("%s: user prompt lacks the lorebook or escaped it", a.ID)
 		}
-		if len(keys) == 0 {
-			t.Errorf("%s: writes no keys", a.ID)
-		}
 		for _, k := range keys {
 			if !strings.Contains(system, `"`+k+`"`) {
 				t.Errorf("%s: system prompt never names key %q", a.ID, k)
@@ -102,9 +115,9 @@ func TestPromptsCarryRunInputs(t *testing.T) {
 	if !strings.Contains(user, "@cards/Billy") {
 		t.Errorf("revise: instruction missing from %q", user)
 	}
-	_, user, keys := render(t, sampleRun(t, "tighten"), settings{})
-	if !strings.Contains(user, `"description"`) || !slices.Equal(keys, []string{"description"}) {
-		t.Errorf("tighten: field missing; keys %v, user %q", keys, user)
+	_, user, _ = render(t, sampleRun(t, "tighten"), settings{})
+	if !strings.Contains(user, `The field to edit, "description"`) {
+		t.Errorf("tighten: field missing from %q", user)
 	}
 	p := sampleRun(t, "examples")
 	p.Inputs = json.RawMessage(`{"count": 5}`)
@@ -114,13 +127,13 @@ func TestPromptsCarryRunInputs(t *testing.T) {
 	p = sampleRun(t, "alternate-greetings")
 	p.Entity.Data = json.RawMessage(`{"name": "Brakka", "alternate_greetings": ["*The gate creaks.*"]}`)
 	p.Inputs = json.RawMessage(`{"count": 4}`)
-	if system, user, _ := render(t, p, settings{}); !strings.Contains(user, "Write 4 new alternate greetings") || !strings.Contains(user, "The gate creaks.") {
+	if system, user, _ := render(t, p, settings{}); !strings.Contains(user, "Write one new alternate greeting") || !strings.Contains(user, "The gate creaks.") {
 		t.Errorf("alternate-greetings: count or existing greetings missing:\n%s\n%s", system, user)
 	}
 	p = sampleRun(t, "lore-entries")
 	p.Instruction = "the guards of the pass"
 	system, user, _ := render(t, p, settings{})
-	for _, want := range []string{"Write 5 new entries", "the guards of the pass", "Northern Reach", "Brakka guards the pass & the gate.", "Card: Brakka"} {
+	for _, want := range []string{"Write one new entry", "the guards of the pass", "Northern Reach", "Brakka guards the pass & the gate.", "Card: Brakka"} {
 		if !strings.Contains(system+user, want) {
 			t.Errorf("lore-entries: prompt lacks %q:\n%s\n%s", want, system, user)
 		}

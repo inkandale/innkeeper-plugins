@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -233,42 +234,56 @@ func withLLM(t *testing.T, replies ...fakeReply) (*fakeLLM, map[string]any) {
 	return f, map[string]any{"connection": id, "prompts": map[string]any{"house_style": "No em dashes."}}
 }
 
-const generated = `<think>An orc courier, I think.</think>{"name": "Ash", "description": "A courier.", "personality": "Wry.",
-"scenario": "A dock.", "first_mes": "Hi.", "mes_example": "<START>", "tags": ["orc"], "system_prompt": "Stay in character.",
-"post_history_instructions": "Short."}`
+// generated is a fake model's reply per field generate writes, in
+// generatedKeys' order.
+var generated = []string{"<think>An orc courier, I think.</think>Ash", "A courier.", "Wry.", "A dock.",
+	"\"Hi,\" she says. \"Wait\", she adds.\n\n*She waves.*", "<START>", "orc, courier", "Stay in character.", "Short."}
 
-func TestRunStreamsProgressPerField(t *testing.T) {
-	llm, cfg := withLLM(t, streamed(generated))
+func generatedReplies() []fakeReply {
+	var replies []fakeReply
+	for _, text := range generated {
+		replies = append(replies, streamed(text))
+	}
+	return replies
+}
+
+func TestGenerateWritesEachFieldInItsOwnCall(t *testing.T) {
+	llm, cfg := withLLM(t, generatedReplies()...)
 	h := startPlugin(t, cfg)
 	res, err := h.run(t, sampleRun(t, "generate"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var card map[string]any
-	if err := json.Unmarshal(res.Proposal, &card); err != nil || card["name"] != "Ash" || len(card) != 9 {
-		t.Fatalf("proposal %s: %v", res.Proposal, err)
+	card := proposalOf(t, res)
+	if card["name"] != "Ash" || card["first_mes"] != "\"Hi,\" she says. \"Wait\", she adds.\n\n*She waves.*" ||
+		!jsonEqual(card["tags"], []string{"orc", "courier"}) || len(card) != 9 {
+		t.Fatalf("proposal %s", res.Proposal)
 	}
-	if res.Raw != generated {
+	if !strings.Contains(res.Raw, "Name:\n<think>An orc courier") || !strings.Contains(res.Raw, "Tags:\norc, courier") {
 		t.Fatalf("raw = %q", res.Raw)
 	}
+	if len(llm.requests) != 9 {
+		t.Fatalf("%d requests, want 9", len(llm.requests))
+	}
+	system := llm.requests[4]["messages"].([]any)[0].(map[string]any)["content"].(string)
+	if !strings.Contains(system, `Write its "first_mes" field now`) || !strings.Contains(system, "No em dashes.") {
+		t.Fatalf("first_mes system prompt %q", system)
+	}
+	if user := userPrompt(llm.requests[4]); !strings.Contains(user, `"name": "Ash"`) || !strings.Contains(user, `"scenario": "A dock."`) {
+		t.Fatalf("first_mes call doesn't see the fields before it: %q", user)
+	}
 	var messages []string
-	for _, p := range h.progress {
-		if p.Run != "1.1" || p.Total != 9 {
+	for i, p := range h.progress {
+		if p.Run != "1.1" || p.Total != 9 || p.Done != int64(i) {
 			t.Fatalf("progress %+v", p)
 		}
 		messages = append(messages, p.Message)
 	}
-	if len(messages) != 9 || messages[0] != "Writing Name (1 of 9)" || messages[2] != "Writing Personality (3 of 9)" ||
-		h.progress[2].Done != 2 {
+	if len(messages) != 9 || messages[0] != "Writing Name (1 of 9)" || messages[2] != "Writing Personality (3 of 9)" {
 		t.Fatalf("progress %q", messages)
 	}
-	req := llm.requests[0]
-	if run, _ := req["run"].(string); !strings.HasPrefix(run, "1.1/") {
-		t.Fatalf("request %v: want a streaming token under the run's", req)
-	}
-	system := req["messages"].([]any)[0].(map[string]any)["content"].(string)
-	if !strings.Contains(system, "No em dashes.") {
-		t.Fatalf("house style not sent: %q", system)
+	if run, _ := llm.requests[0]["run"].(string); !strings.HasPrefix(run, "1.1/") {
+		t.Fatalf("request %v: want a streaming token under the run's", llm.requests[0])
 	}
 }
 
@@ -402,7 +417,7 @@ func TestActionList(t *testing.T) {
 }
 
 func TestReferenceImageSent(t *testing.T) {
-	llm, cfg := withLLM(t, streamed(generated))
+	llm, cfg := withLLM(t, generatedReplies()...)
 	h := startPlugin(t, cfg)
 	img := t.TempDir() + "/ref.png"
 	// A PNG signature is enough for content sniffing.
@@ -509,10 +524,10 @@ func TestProgressRestartsEachRound(t *testing.T) {
 	}
 }
 
-func TestLoreEntriesRunProgressPerEntry(t *testing.T) {
-	out := `{"entries": [{"comment": "The pass", "keys": ["Iron Pass"], "content": "A narrow road."},
-		{"keys": ["Billy"], "content": "Brakka's brother."}, {"keys": ["Snow"], "content": "Always."}]}`
-	llm, cfg := withLLM(t, streamed(out))
+func TestLoreEntriesWriteEachEntryInItsOwnCall(t *testing.T) {
+	llm, cfg := withLLM(t,
+		streamed("Title: The pass\nKeys: Iron Pass, the pass\n\nA narrow road. \"Halt,\" the guards say."),
+		streamed("**Keys:** Billy\n\nBrakka's brother."))
 	h := startPlugin(t, cfg)
 	p := sampleRun(t, "lore-entries")
 	p.Inputs = json.RawMessage(`{"count": 2}`)
@@ -521,17 +536,27 @@ func TestLoreEntriesRunProgressPerEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	var book struct{ Entries []map[string]any }
-	if err := json.Unmarshal(res.Proposal, &book); err != nil || len(book.Entries) != 4 || book.Entries[0]["id"] != 1.0 {
+	if err := json.Unmarshal(res.Proposal, &book); err != nil || len(book.Entries) != 3 {
 		t.Fatalf("proposal %s: %v", res.Proposal, err)
 	}
+	if e := book.Entries[1]; e["comment"] != "The pass" || !jsonEqual(e["keys"], []string{"Iron Pass", "the pass"}) ||
+		e["content"] != "A narrow road. \"Halt,\" the guards say." {
+		t.Fatalf("first new entry %v", e)
+	}
+	if e := book.Entries[2]; e["comment"] != nil || !jsonEqual(e["keys"], []string{"Billy"}) || e["content"] != "Brakka's brother." {
+		t.Fatalf("second new entry %v", e)
+	}
+	if !strings.Contains(userPrompt(llm.requests[1]), "Iron Pass") {
+		t.Fatal("the second entry's call doesn't see the first")
+	}
 	var messages []string
-	for _, pr := range h.progress {
-		if pr.Total != 2 || pr.Done >= pr.Total {
+	for i, pr := range h.progress {
+		if pr.Total != 2 || pr.Done != int64(i) {
 			t.Fatalf("progress %+v", pr)
 		}
 		messages = append(messages, pr.Message)
 	}
-	if len(messages) != 2 || messages[0] != "Writing entry 1 of 2" || messages[1] != "Writing entry 2 of 2" {
+	if !slices.Equal(messages, []string{"Writing entry 1 of 2", "Writing entry 2 of 2"}) {
 		t.Fatalf("progress %q", messages)
 	}
 	if tools, _ := llm.requests[0]["tools"].([]any); len(tools) != 4 {

@@ -18,14 +18,13 @@ import (
 const qualityKey = "quality"
 
 // evaluatePrompt names the evaluate setup in each value's meta: a hash of the
-// template and the settings that change the prompt or the output, so scores
-// from different setups don't look comparable.
-func evaluatePrompt(s settings) (string, error) {
+// template and the settings that change the prompt or the output of a, the
+// evaluate action, so scores from different setups don't look comparable.
+func evaluatePrompt(s settings, a action) (string, error) {
 	tmpl, err := promptFiles.ReadFile("prompts/evaluate.tmpl")
 	if err != nil {
 		return "", err
 	}
-	a, _ := findAction("evaluate")
 	temperature, maxTokens := a.limits(s)
 	h := sha256.New()
 	h.Write(tmpl)
@@ -131,9 +130,9 @@ func (srv *server) evaluateScores(ctx context.Context, in *instance, run string,
 }
 
 // reportValues are a report's scores by enrichment key, each clamped to 0 to
-// 100, and the meta to store with them.
-func reportValues(s settings, model string, rep *protocol.Report) (map[string]json.RawMessage, json.RawMessage, error) {
-	prompt, err := evaluatePrompt(s)
+// 100, and the meta to store with them. a is the evaluate action.
+func reportValues(s settings, a action, model string, rep *protocol.Report) (map[string]json.RawMessage, json.RawMessage, error) {
+	prompt, err := evaluatePrompt(s, a)
 	if err != nil {
 		return nil, nil, err
 	}

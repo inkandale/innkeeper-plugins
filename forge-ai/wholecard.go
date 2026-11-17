@@ -22,34 +22,16 @@ func (srv *server) wholeCard(ctx context.Context, in *instance, r *run) (*protoc
 	if err != nil {
 		return nil, fmt.Errorf("plan: %w", err)
 	}
-	raw := []string{"Plan:\n" + planText}
-	var planned []string
+	var steps []step
 	for _, f := range r.Fields {
 		if notes[f] != "" {
-			planned = append(planned, f)
+			steps = append(steps, step{label: label(f), field: f, note: notes[f], takes: (*run).withFieldText})
 		}
 	}
-	for i, f := range planned {
-		_ = in.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Done: int64(i + 1), Total: int64(len(planned) + 1),
-			Message: fmt.Sprintf("%s: %s (%d of %d)", r.Label, label(f), i+1, len(planned))})
-		// section shares r.draft; its proposal copies the draft before changing
-		// its field, and decoding it back into r.draft shows the next section the change.
-		section := *r
-		section.Field, section.note = f, notes[f]
-		res, err := srv.perform(ctx, in, &section, true, noProgress)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", label(f), err)
-		}
-		raw = append(raw, label(f)+":\n"+res.Raw)
-		if err := json.Unmarshal(res.Proposal, &r.draft); err != nil {
-			return nil, err
-		}
+	for i := range steps {
+		steps[i].message = fmt.Sprintf("%s: %s (%d of %d)", r.Label, steps[i].label, i+1, len(steps))
 	}
-	proposal, err := json.Marshal(r.draft)
-	if err != nil {
-		return nil, err
-	}
-	return &protocol.ActionRunResult{Proposal: proposal, Raw: strings.Join(raw, "\n\n")}, nil
+	return srv.runSteps(ctx, in, r, steps, []string{"Plan:\n" + planText})
 }
 
 // plan returns the model's note per field of r's, leaving out each it skips

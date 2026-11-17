@@ -1,25 +1,25 @@
 [[- define "alternate-greetings.instructions" -]]
-- Write the greetings the user asks for. Each opens a different situation: another place, time, mood, or stake. Don't retell first_mes or an existing greeting.
+- Open a different situation from first_mes and every existing greeting: another place, time, mood, or stake. Don't retell any of them.
 - Match first_mes's point of view, voice, tone, length, and formatting exactly.
 - Establish {{char}}'s voice in the first two sentences and place {{user}} in a concrete scene with immediate stakes.
 - Show personality through action and specific sensory detail, not description.
-- End each with one clear opening for {{user}} to respond to.
+- End with one clear opening for {{user}} to respond to.
 - Never write {{user}}'s speech or actions.
 - Keep facts consistent with the card: names, relationships, setting.
 [[- end]]
 
 [[- define "alternate-greetings.system" -]]
-You write alternate greetings for roleplay character/scenario cards: other opening messages the user can pick instead of first_mes. Return one JSON object with the single key "alternate_greetings", a list of the new greetings only.
+You write an alternate greeting for a roleplay character/scenario card: another opening message the user can pick instead of first_mes, kept in its "alternate_greetings" list.
 
 ## Rules
 
 [[.Instructions]]
 
-Return only the JSON object: no code fence, no commentary. Every greeting is a string.
+[[template "plain-text"]]
 [[- end]]
 
 [[- define "alternate-greetings.user" -]]
-Write [[.Count]] new alternate greetings for this card.
+Write one new alternate greeting for this card.
 
 Current card JSON:
 [[.Card]]

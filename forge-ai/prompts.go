@@ -29,10 +29,12 @@ type promptData struct {
 	Context     protocol.ActionContext
 	// Instructions are the action's rules: the owner's override or the default.
 	Instructions string
-	// Keys are the keys the model returns, quoted, for its JSON contract.
+	// Keys are the fields a whole-card plan returns, quoted, for its JSON contract.
 	Keys string
-	// Note is the plan's note for the field, in a whole-card run.
+	// Note is the plan's note for the part, in a run of parts.
 	Note string
+	// Part names what a step of revise-lorebook writes, such as "Entry 3".
+	Part string
 	// Action and ActionInstructions describe the edit a whole-card plan is for.
 	Action             string
 	ActionInstructions string
@@ -78,7 +80,7 @@ func settingsDefaults() (protocol.SettingsDefaultsResult, error) {
 // with the owner's house style.
 func (r *run) prompts(s settings) (system, user string, err error) {
 	d := promptData{Field: r.Field, Instruction: r.Instruction, PointOfView: r.pointOfView, Count: r.count,
-		Image: r.Images.Reference != "" || r.Images.Avatar != "", Context: r.Context, Note: r.note}
+		Image: r.Images.Reference != "" || r.Images.Avatar != "", Context: r.Context, Note: r.note, Part: r.part}
 	switch {
 	case r.Applies == protocol.ApplyLorebook:
 		book, err := r.sentLorebook()
@@ -117,11 +119,14 @@ func (r *run) prompts(s settings) (system, user string, err error) {
 	if d.Instructions, err = instructions(s, r.instructionsKey()); err != nil {
 		return "", "", err
 	}
-	d.Keys = quoted(r.writes())
-	if system, err = execute(r.ID+".system", d); err != nil {
+	name := r.ID
+	if r.template != "" {
+		name = r.template
+	}
+	if system, err = execute(name+".system", d); err != nil {
 		return "", "", err
 	}
-	if user, err = execute(r.ID+".user", d); err != nil {
+	if user, err = execute(name+".user", d); err != nil {
 		return "", "", err
 	}
 	return withHouseStyle(system, s), user, nil

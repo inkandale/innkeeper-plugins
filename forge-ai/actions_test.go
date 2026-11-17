@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -55,13 +56,6 @@ func TestFieldActionProposalChangesOnlyItsField(t *testing.T) {
 	}
 	if res.Report != nil {
 		t.Fatal("field action made a report")
-	}
-}
-
-func TestGenerateProposalIsTheNewCard(t *testing.T) {
-	m := proposalOf(t, result(t, sampleRun(t, "generate"), `{"name": "Ash", "description": "A courier.", "tags": ["sci-fi"]}`))
-	if m["name"] != "Ash" || len(m) != 3 {
-		t.Fatalf("proposal %v", m)
 	}
 }
 
@@ -144,23 +138,37 @@ const threeEntries = `{"name": "Reach", "description": "Cold.", "extensions": {"
 	{"id": 2, "keys": ["gate"], "content": "Iron."},
 	{"id": 3, "keys": ["clans"], "content": "Three clans.", "constant": true}]}`
 
-func reviseLorebook(t *testing.T, output string) map[string]json.RawMessage {
+// reviseLorebook runs revise-lorebook on threeEntries with a fake model
+// that gives replies in turn, the plan first.
+func reviseLorebook(t *testing.T, replies ...string) (map[string]json.RawMessage, *fakeLLM) {
 	t.Helper()
+	var scripted []fakeReply
+	for _, r := range replies {
+		scripted = append(scripted, streamed(r))
+	}
+	llm, cfg := withLLM(t, scripted...)
+	h := startPlugin(t, cfg)
 	p := sampleRun(t, "revise-lorebook")
 	p.Entity.Data = json.RawMessage(threeEntries)
-	var out map[string]json.RawMessage
-	if err := json.Unmarshal(result(t, p, output).Proposal, &out); err != nil {
+	res, err := h.run(t, p)
+	if err != nil {
 		t.Fatal(err)
 	}
-	return out
+	var out map[string]json.RawMessage
+	if err := json.Unmarshal(res.Proposal, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out, llm
 }
 
-func TestReviseLorebookChangesRemovesAndAddsEntries(t *testing.T) {
-	out := reviseLorebook(t, `{"description": "Bitter cold.", "entries": [
-		{"entry": 1, "content": "Snowbound in winter."},
-		{"entry": 3, "constant": false, "keys": ["clans", "clan"]},
-		{"keys": [" chief "], "content": " Leads the clans. "}],
-		"removed": [2]}`)
+func TestReviseLorebookPlansThenWritesEachPart(t *testing.T) {
+	out, llm := reviseLorebook(t,
+		`{"description": "Make it bitter.", "entries": [{"entry": 1, "note": "Add winter."},
+			{"entry": 3, "note": "Not constant; add clan."}, {"note": "Add the chief."}], "removed": [2]}`,
+		"Bitter cold.",
+		"Keys: pass\n\nSnowbound in winter.",
+		"Title:\nKeys: clans, clan\nConstant: no\n\nThree clans.",
+		"Title: Chief\nKeys:  chief \n\n \"Kneel,\" says the chief. He leads the clans. ")
 	var entries []map[string]any
 	if err := json.Unmarshal(out["entries"], &entries); err != nil {
 		t.Fatal(err)
@@ -168,27 +176,38 @@ func TestReviseLorebookChangesRemovesAndAddsEntries(t *testing.T) {
 	if string(out["description"]) != `"Bitter cold."` || string(out["extensions"]) != `{"x":1}` || len(entries) != 3 {
 		t.Fatalf("proposal %s", out)
 	}
-	// An edit changes only the properties it names; the rest keep their values.
+	// An edit changes only the properties it gives; the rest keep their values.
 	want := []map[string]any{
 		{"id": 1.0, "keys": []any{"pass"}, "content": "Snowbound in winter.", "insertion_order": 7.0, "extensions": map[string]any{"depth": 4.0}},
 		{"id": 3.0, "keys": []any{"clans", "clan"}, "content": "Three clans.", "constant": false},
-		{"keys": []any{"chief"}, "content": "Leads the clans.", "enabled": true, "insertion_order": 100.0, "position": "before_char",
-			"use_regex": false, "extensions": map[string]any{}},
+		{"comment": "Chief", "keys": []any{"chief"}, "content": `"Kneel," says the chief. He leads the clans.`, "enabled": true,
+			"insertion_order": 100.0, "position": "before_char", "use_regex": false, "extensions": map[string]any{}},
 	}
 	if !reflect.DeepEqual(entries, want) {
 		t.Fatalf("entries %v", entries)
 	}
+	// Entry 3's step still sees it as entry 3: deletions wait for the last step.
+	if len(llm.requests) != 5 || !strings.Contains(userPrompt(llm.requests[3]), "Write: Entry 3\nPlan for it: Not constant; add clan.") ||
+		!strings.Contains(userPrompt(llm.requests[3]), `"content": "Iron."`) {
+		t.Fatalf("requests %v", llm.requests)
+	}
 }
 
 func TestReviseLorebookKeepsTheDraftWhenNothingChanges(t *testing.T) {
-	out := reviseLorebook(t, `{"name": "Reach", "entries": [{"entry": 2, "content": "Iron."}, {"entry": 9, "content": "No such entry."},
-		{"keys": ["empty"], "content": " "}], "removed": [0, 12]}`)
+	out, llm := reviseLorebook(t,
+		`{"name": "Reach", "entries": [{"entry": 2, "note": "Same."}, {"entry": 9, "note": "No such entry."},
+			{"note": "Empty."}], "removed": [0, 12]}`,
+		"Keys: gate\n\nIron.",
+		"Keys: empty\n\n ")
 	var got, want any
 	b, _ := json.Marshal(out)
 	_ = json.Unmarshal(b, &got)
 	_ = json.Unmarshal([]byte(threeEntries), &want)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("proposal %s", out)
+	}
+	if len(llm.requests) != 3 {
+		t.Fatalf("%d requests, want the plan and two steps; an unknown entry gets none", len(llm.requests))
 	}
 }
 
@@ -277,40 +296,67 @@ func TestReviseOnTagsTakesCommaText(t *testing.T) {
 	}
 }
 
+// appendRun runs action on data with count set to one call per reply.
+func appendRun(t *testing.T, action, data string, replies ...string) (protocol.ActionRunResult, *fakeLLM) {
+	t.Helper()
+	var scripted []fakeReply
+	for _, r := range replies {
+		scripted = append(scripted, streamed(r))
+	}
+	llm, cfg := withLLM(t, scripted...)
+	h := startPlugin(t, cfg)
+	p := sampleRun(t, action)
+	if data != "" {
+		p.Entity.Data = json.RawMessage(data)
+	}
+	p.Inputs = json.RawMessage(fmt.Sprintf(`{"count": %d}`, len(replies)))
+	res, err := h.run(t, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res, llm
+}
+
 func TestAlternateGreetingsAppendToExisting(t *testing.T) {
-	p := sampleRun(t, "alternate-greetings")
-	p.Entity.Data = json.RawMessage(`{"name": "Brakka", "first_mes": "Hi.", "alternate_greetings": ["Old."], "extensions": {"x": 1}}`)
-	m := proposalOf(t, result(t, p, `{"alternate_greetings": ["*Rain.* Who goes there?", " ", "Old.", "*Dawn.*"]}`))
+	res, llm := appendRun(t, "alternate-greetings",
+		`{"name": "Brakka", "first_mes": "Hi.", "alternate_greetings": ["Old."], "extensions": {"x": 1}}`,
+		`*Rain.* "Who goes there?"`, " ", "Old.", "```\n*Dawn.*\n```")
+	m := proposalOf(t, res)
 	got, _ := json.Marshal(m["alternate_greetings"])
-	if string(got) != `["Old.","*Rain.* Who goes there?","*Dawn.*"]` || m["first_mes"] != "Hi." || m["extensions"] == nil {
+	if string(got) != `["Old.","*Rain.* \"Who goes there?\"","*Dawn.*"]` || m["first_mes"] != "Hi." || m["extensions"] == nil {
 		t.Fatalf("proposal %v", m)
+	}
+	if !strings.Contains(userPrompt(llm.requests[3]), "Who goes there?") {
+		t.Fatal("a later greeting's call doesn't see the earlier ones")
 	}
 }
 
 func TestAlternateGreetingsOnACardWithoutAny(t *testing.T) {
-	m := proposalOf(t, result(t, sampleRun(t, "alternate-greetings"), `{"alternate_greetings": ["*Dawn.*"]}`))
+	res, _ := appendRun(t, "alternate-greetings", "", "*Dawn.*")
+	m := proposalOf(t, res)
 	if got, _ := json.Marshal(m["alternate_greetings"]); string(got) != `["*Dawn.*"]` || m["name"] != "Brakka" {
 		t.Fatalf("proposal %v", m)
 	}
 }
 
 func TestLoreEntriesKeepExistingAndAppendNew(t *testing.T) {
-	out := `{"entries": [
-		{"comment": "The pass", "keys": ["BRAKKA", "Iron Pass"], "content": "Matches an existing entry's first key."},
-		{"comment": "Orcs", "keys": ["the orc", "Orcs", "Greenskins"], "content": "The orcs of the pass."},
-		{"comment": "Mostly taken", "keys": ["the orc", "orcs", "Tusks"], "content": "Two of three keys taken."},
-		{"comment": "Empty", "keys": ["Snow"], "content": " "},
-		{"keys": ["Billy", "billy"], "content": "Brakka's brother."}]}`
-	res := result(t, sampleRun(t, "lore-entries"), out)
+	res, _ := appendRun(t, "lore-entries", "",
+		"Title: The pass\nKeys: BRAKKA, Iron Pass\n\nMatches an existing entry's first key.",
+		"Title: Orcs\nKeys: the orc, Orcs, Greenskins\n\nThe orcs of the pass.",
+		"Title: Mostly taken\nKeys: the orc, orcs, Tusks\n\nTwo of three keys taken.",
+		"Title: Empty\nKeys: Snow\n\n ",
+		"Keys: Billy, billy\n\nBrakka's brother.")
 	m := proposalOf(t, res)
 	if m["name"] != "Northern Reach" || m["description"] != "The cold north." {
 		t.Fatalf("proposal %v", m)
 	}
-	// The Forge's review compares entries as JSON text, so the existing one keeps its bytes.
+	// The Forge's review compares entries as JSON text, so the existing one
+	// keeps its bytes, as the protocol's encoder sends them.
 	var before struct{ Entries []json.RawMessage }
 	_ = json.Unmarshal([]byte(sampleLorebook), &before)
-	var existing bytes.Buffer
-	_ = json.Compact(&existing, before.Entries[0])
+	var compact, existing bytes.Buffer
+	_ = json.Compact(&compact, before.Entries[0])
+	json.HTMLEscape(&existing, compact.Bytes())
 	if !bytes.Contains(res.Proposal, existing.Bytes()) {
 		t.Fatalf("existing entry %s changed in %s", existing.Bytes(), res.Proposal)
 	}
@@ -324,18 +370,10 @@ func TestLoreEntriesKeepExistingAndAppendNew(t *testing.T) {
 }
 
 func TestLoreEntryWithoutKeyListStillReachesTheModel(t *testing.T) {
-	p := sampleRun(t, "lore-entries")
-	p.Entity.Data = json.RawMessage(`{"name": "Weather", "entries": [{"keys": "Snow", "content": "It always snows."}, "not an entry"]}`)
-	r, err := parseRun(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, user, err := r.prompts(settings{}); err != nil || !strings.Contains(user, "It always snows.") {
-		t.Fatalf("user prompt %q, err %v", user, err)
-	}
-	res, err := r.result(`{"entries": [{"keys": ["Snow"], "content": "Snow falls at night."}]}`)
-	if err != nil {
-		t.Fatal(err)
+	res, llm := appendRun(t, "lore-entries", `{"name": "Weather", "entries": [{"keys": "Snow", "content": "It always snows."}, "not an entry"]}`,
+		"Keys: Snow\n\nSnow falls at night.")
+	if !strings.Contains(userPrompt(llm.requests[0]), "It always snows.") {
+		t.Fatalf("user prompt %q", userPrompt(llm.requests[0]))
 	}
 	if !bytes.Contains(res.Proposal, []byte(`"not an entry"`)) || !bytes.Contains(res.Proposal, []byte(`"keys":["Snow"],"content":"Snow falls at night."`)) {
 		t.Fatalf("proposal %s", res.Proposal)
@@ -343,15 +381,14 @@ func TestLoreEntryWithoutKeyListStillReachesTheModel(t *testing.T) {
 }
 
 func TestAppendThatAddsNothingLeavesTheDraft(t *testing.T) {
-	for action, out := range map[string]string{
-		"alternate-greetings": `{"alternate_greetings": []}`,
-		"lore-entries":        `{"entries": [{"keys": ["Brakka"], "content": "Taken."}]}`,
+	for action, reply := range map[string]string{
+		"alternate-greetings": "  ",
+		"lore-entries":        "Keys: Brakka\n\nTaken.",
 	} {
-		p := sampleRun(t, action)
-		res := result(t, p, out)
+		res, _ := appendRun(t, action, "", reply)
 		var got, want any
 		_ = json.Unmarshal(res.Proposal, &got)
-		_ = json.Unmarshal(p.Entity.Data, &want)
+		_ = json.Unmarshal(sampleRun(t, action).Entity.Data, &want)
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("%s: proposal %s, want the draft", action, res.Proposal)
 		}

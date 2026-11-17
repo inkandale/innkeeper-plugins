@@ -99,20 +99,3 @@ func wantField(t *testing.T, obj map[string]json.RawMessage, key, want string) {
 		t.Fatalf("%s = %s (%v), want %q", key, obj[key], err, want)
 	}
 }
-
-func TestStartedItemsOnPartialOutput(t *testing.T) {
-	cases := map[string]int{
-		"":                           0,
-		`{"entries": [`:              0,
-		`{"entries": [{"keys": ["a"`: 1,
-		"Sure: ```json\n{\"note\": \"{x}\", \"entries\": [{\"keys\": []}, {\"co": 2,
-		`{"entries": [{}, {}, {}]}`:                     3,
-		`{"other": [{}], "entries": [`:                  0,
-		`<think>{"entries": [{}]}</think>{"entries": [`: 0,
-	}
-	for in, want := range cases {
-		if got := startedItems(in, "entries"); got != want {
-			t.Errorf("startedItems(%q) = %d, want %d", in, got, want)
-		}
-	}
-}

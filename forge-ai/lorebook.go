@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
 	"reflect"
 	"slices"
 	"strings"
+
+	"github.com/inkandale/innkeeper/protocol"
 )
 
 // reviewedEntry is what an evaluation or an edit sees of an entry: also its
@@ -37,23 +40,65 @@ func reviewedEntries(list []json.RawMessage) []reviewedEntry {
 	return out
 }
 
-// editor is how an action's reply changes the draft in place.
-type editor struct {
-	keys  []string // the keys the model returns
-	merge func(r *run, got map[string]json.RawMessage) (json.RawMessage, error)
-}
-
-var lorebookEditor = &editor{keys: []string{"name", "description", "entries", "removed"}, merge: (*run).withEdits}
-
 // entryEdit is one entry the model changes, by number, or adds, without
 // one. A property it leaves out keeps its value.
 type entryEdit struct {
-	Entry         int       `json:"entry"`
-	Comment       *string   `json:"comment"`
-	Keys          *[]string `json:"keys"`
-	SecondaryKeys *[]string `json:"secondary_keys"`
-	Content       *string   `json:"content"`
-	Constant      *bool     `json:"constant"`
+	Entry         int
+	Comment       *string
+	Keys          *[]string
+	SecondaryKeys *[]string
+	Content       *string
+	Constant      *bool
+}
+
+// parseEntryText reads an entry the model wrote in the entry-format
+// template's layout: header lines, such as "Keys: a, b", then the content.
+// A header it leaves out is nil, so an edit keeps that property.
+func parseEntryText(text string) entryEdit {
+	var ed entryEdit
+	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	i := 0
+	for ; i < len(lines); i++ {
+		name, value, ok := strings.Cut(lines[i], ":")
+		if !ok || !ed.setHeader(name, strings.Trim(value, "*_ \t")) {
+			break
+		}
+	}
+	if content := strings.TrimSpace(strings.Join(lines[i:], "\n")); content != "" {
+		ed.Content = &content
+	}
+	return ed
+}
+
+// setHeader sets the property an entry header names, or reports false for
+// a line that isn't a header, which starts the content. A header left empty
+// sets nothing.
+func (ed *entryEdit) setHeader(name, value string) bool {
+	var set func()
+	switch strings.ToLower(strings.Trim(name, "*_ ")) {
+	case "title":
+		set = func() { ed.Comment = &value }
+	case "keys":
+		set = func() { keys := splitKeys(value); ed.Keys = &keys }
+	case "secondary keys":
+		set = func() { keys := splitKeys(value); ed.SecondaryKeys = &keys }
+	case "constant":
+		set = func() {
+			constant := strings.EqualFold(value, "yes") || strings.EqualFold(value, "true")
+			ed.Constant = &constant
+		}
+	default:
+		return false
+	}
+	if value != "" {
+		set()
+	}
+	return true
+}
+
+// splitKeys is a comma-separated list of keys, trimmed.
+func splitKeys(s string) []string {
+	return trimmedKeys(strings.Split(s, ","))
 }
 
 // apply is raw with the edit's properties set, and whether any changed.
@@ -111,45 +156,38 @@ func trimmedKeys(keys []string) []string {
 	return out
 }
 
-// withEdits is the draft with the model's changes: a new name or
-// description, entries changed, removed, and added after the rest. An
-// unknown entry number is ignored, and a new entry needs keys and content.
-func (r *run) withEdits(got map[string]json.RawMessage) (json.RawMessage, error) {
+// lorebookEdit is a change to a lorebook: a new name or description,
+// entries changed or added, and entries removed, by number.
+type lorebookEdit struct {
+	Name, Description *string
+	Entries           []entryEdit
+	Removed           []int
+}
+
+// withEdits is the draft with ed applied: entries changed, removed, and
+// added after the rest. An unknown entry number is ignored, and a new entry
+// needs keys and content.
+func (r *run) withEdits(ed lorebookEdit) (json.RawMessage, error) {
 	out := maps.Clone(r.draft)
 	changed := false
-	for _, k := range []string{"name", "description"} {
-		raw, ok := got[k]
-		if !ok || string(raw) == "null" {
+	for k, v := range map[string]*string{"name": ed.Name, "description": ed.Description} {
+		if v == nil {
 			continue
-		}
-		var v string
-		if err := json.Unmarshal(raw, &v); err != nil {
-			return nil, fmt.Errorf("the model's %s isn't text", k)
 		}
 		was, err := typed(k, r.draft[k])
 		if err != nil {
 			return nil, fmt.Errorf("the lorebook's %s: %w", k, err)
 		}
-		if v = strings.TrimSpace(v); v == was {
+		text := strings.TrimSpace(*v)
+		if text == was {
 			continue
 		}
-		if out[k], err = encode(v); err != nil {
+		if out[k], err = encode(text); err != nil {
 			return nil, err
 		}
 		changed = true
 	}
-	var edits []entryEdit
-	var removed []int
-	if raw, ok := got["entries"]; ok && string(raw) != "null" {
-		if err := json.Unmarshal(raw, &edits); err != nil {
-			return nil, fmt.Errorf("the model's entries: %w", err)
-		}
-	}
-	if raw, ok := got["removed"]; ok && string(raw) != "null" {
-		if err := json.Unmarshal(raw, &removed); err != nil {
-			return nil, fmt.Errorf("the model's removed isn't a list of entry numbers")
-		}
-	}
+	edits, removed := ed.Entries, ed.Removed
 	list, err := r.entries()
 	if err != nil {
 		return nil, err
@@ -208,4 +246,88 @@ func (ed entryEdit) newEntry() (json.RawMessage, error) {
 	}
 	e, _, err := ed.apply(blank)
 	return e, err
+}
+
+// lorebookPlan is revise-lorebook's plan: a new name, a note on what to
+// change in the description, a note per entry to change or, without an
+// entry number, to add, and the entries to delete.
+type lorebookPlan struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Entries     []struct {
+		Entry int    `json:"entry"`
+		Note  string `json:"note"`
+	} `json:"entries"`
+	Removed []int `json:"removed"`
+}
+
+// reviseLorebook plans the edit in one call, then writes the description
+// and each changed or new entry in a call of its own. Deletions come last,
+// so the plan's entry numbers hold for every step.
+func (srv *server) reviseLorebook(ctx context.Context, in *instance, r *run) (*protocol.ActionRunResult, error) {
+	_ = in.conn.Notify(protocol.NotifyProgress, protocol.Progress{Run: r.Run, Total: 1, Message: "Planning " + r.Label})
+	var plan lorebookPlan
+	planning := *r
+	planning.template = "revise-lorebook-plan"
+	planning.takes = func(r *run, text string) (json.RawMessage, error) {
+		obj, err := parseObject(text)
+		if err != nil {
+			return nil, err
+		}
+		b, err := json.Marshal(obj)
+		if err == nil {
+			err = json.Unmarshal(b, &plan)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("the model's plan: %w", err)
+		}
+		return encode(r.draft)
+	}
+	planned, err := srv.perform(ctx, in, &planning, true, noProgress)
+	if err != nil {
+		return nil, fmt.Errorf("plan: %w", err)
+	}
+	if name := strings.TrimSpace(plan.Name); name != "" {
+		proposal, err := r.withEdits(lorebookEdit{Name: &name})
+		if err == nil {
+			err = json.Unmarshal(proposal, &r.draft)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	var steps []step
+	if note := strings.TrimSpace(plan.Description); note != "" {
+		steps = append(steps, step{label: "Description", field: "description", note: note, takes: func(r *run, text string) (json.RawMessage, error) {
+			return r.withEdits(lorebookEdit{Description: &text})
+		}})
+	}
+	list, err := r.entries()
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range plan.Entries {
+		note := strings.TrimSpace(e.Note)
+		if note == "" || e.Entry < 0 || e.Entry > len(list) {
+			continue
+		}
+		label := "New entry"
+		if e.Entry > 0 {
+			label = fmt.Sprintf("Entry %d", e.Entry)
+		}
+		steps = append(steps, step{label: label, note: note, takes: func(r *run, text string) (json.RawMessage, error) {
+			ed := parseEntryText(text)
+			ed.Entry = e.Entry
+			return r.withEdits(lorebookEdit{Entries: []entryEdit{ed}})
+		}})
+	}
+	for i := range steps {
+		steps[i].message = fmt.Sprintf("%s: %s (%d of %d)", r.Label, steps[i].label, i+1, len(steps))
+	}
+	res, err := srv.runSteps(ctx, in, r, steps, []string{"Plan:\n" + planned.Raw})
+	if err != nil {
+		return nil, err
+	}
+	res.Proposal, err = r.withEdits(lorebookEdit{Removed: plan.Removed})
+	return res, err
 }
