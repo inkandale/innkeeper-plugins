@@ -195,7 +195,8 @@ func (r *run) writes() []string {
 	return generatedKeys
 }
 
-// sent is the card as the model sees it: cardKeys, with absent ones empty.
+// sent is the card as the model sees it: cardKeys, with absent ones empty,
+// and the alternate greetings, which no edit of the card's fields changes.
 func (r *run) sent() (map[string]any, error) {
 	card := map[string]any{}
 	for _, k := range cardKeys {
@@ -205,6 +206,11 @@ func (r *run) sent() (map[string]any, error) {
 		}
 		card[k] = v
 	}
+	greetings, err := r.greetings()
+	if err != nil {
+		return nil, err
+	}
+	card["alternate_greetings"] = append([]string{}, greetings...)
 	return card, nil
 }
 

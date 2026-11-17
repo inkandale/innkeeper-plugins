@@ -19,7 +19,6 @@ var templates = template.Must(template.New("").Delims("[[", "]]").ParseFS(prompt
 type promptData struct {
 	Card        string
 	Lorebook    string
-	Existing    string
 	Field       string
 	FieldText   string
 	Instruction string
@@ -103,17 +102,6 @@ func (r *run) prompts(s settings) (system, user string, err error) {
 			d.FieldText = v
 		case []string:
 			d.FieldText = strings.Join(v, ", ")
-		}
-		if r.appends != nil && r.appends.existing != nil {
-			list, err := r.appends.existing(r)
-			if err != nil {
-				return "", "", err
-			}
-			if len(list) > 0 {
-				if d.Existing, err = indented(list); err != nil {
-					return "", "", err
-				}
-			}
 		}
 	}
 	if d.Instructions, err = instructions(s, r.instructionsKey()); err != nil {

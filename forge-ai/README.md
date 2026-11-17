@@ -54,18 +54,25 @@ short structured replies are JSON: a plan and an evaluation.
 | `evaluate`, `evaluate-lorebook` | One, answered in JSON |
 
 Each call sends the action's instructions and the card or lorebook again,
-so a run of many parts costs more input tokens than one call did.
+so a run of many parts costs more input tokens than one call did. The card
+the model sees includes its `alternate_greetings`, which only
+`alternate-greetings` changes.
 
-Tags come back separated by commas. A lore entry comes back as header
-lines, then its content:
+The model puts each part between `<text>` and `</text>`, and Forge keeps
+only what's inside, so commentary such as "Here's the new field:" never
+reaches the card. A reply without the tags is used whole, less a code fence
+around it. Tags come back separated by commas. A lore entry comes back as
+header lines, then its content:
 
 ```text
+<text>
 Title: The pass
 Keys: Iron Pass, the pass
 Secondary keys: winter
 Constant: no
 
 A narrow road through the mountains.
+</text>
 ```
 
 Only `revise-lorebook` asks for `Secondary keys` and `Constant`. A header

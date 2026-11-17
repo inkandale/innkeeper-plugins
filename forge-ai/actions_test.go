@@ -418,3 +418,33 @@ func TestCountDefaultsAndLimits(t *testing.T) {
 		}
 	}
 }
+
+func TestFieldActionKeepsOnlyTheTextInsideItsTags(t *testing.T) {
+	p := sampleRun(t, "revise")
+	p.Field = "system_prompt"
+	reply := "Here's the new system_prompt field:\n<text>\nYou narrate {{char}}.\n</text>\nHope that helps!"
+	if got := proposalOf(t, result(t, p, reply))["system_prompt"]; got != "You narrate {{char}}." {
+		t.Fatalf("system_prompt = %q", got)
+	}
+}
+
+func TestCardPromptsShowTheAlternateGreetings(t *testing.T) {
+	card := `{"name": "Brakka", "first_mes": "Hi.", "alternate_greetings": ["*The gate creaks.*"]}`
+	for _, id := range []string{"evaluate", "revise", "alternate-greetings"} {
+		p := sampleRun(t, id)
+		p.Entity.Data = json.RawMessage(card)
+		if _, user, _ := render(t, p, settings{}); !strings.Contains(user, "The gate creaks.") {
+			t.Errorf("%s: the model doesn't see the alternate greetings:\n%s", id, user)
+		}
+	}
+	p := sampleRun(t, "revise")
+	p.Field, p.Entity.Data = "", json.RawMessage(card)
+	r, err := parseRun(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	system, user, err := r.planPrompts(settings{})
+	if err != nil || !strings.Contains(user, "The gate creaks.") || !strings.Contains(system, `"alternate_greetings": other opening messages`) {
+		t.Fatalf("plan prompts (%v):\n%s\n%s", err, system, user)
+	}
+}

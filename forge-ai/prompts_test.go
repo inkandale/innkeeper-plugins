@@ -70,7 +70,7 @@ func render(t *testing.T, p protocol.ActionRunParams, s settings) (system, user 
 		t.Fatalf("%s: %v", p.Action, err)
 	}
 	if plain {
-		if !strings.Contains(system, "Return only the") {
+		if !strings.Contains(system, "between <text> and </text>") {
 			t.Errorf("%s: system prompt never asks for the reply's format:\n%s", p.Action, system)
 		}
 		return system, user, nil

@@ -123,10 +123,16 @@ func parseObject(output string) (map[string]json.RawMessage, error) {
 	return nil, fmt.Errorf("the model didn't return a JSON object: %q", v)
 }
 
-// plainText is a plain-text reply without reasoning or a code fence around
-// all of it.
+// plainText is a plain-text reply without reasoning: what's between its
+// <text> tags, which keep out any commentary around them, or else the whole
+// reply less a code fence around all of it.
 func plainText(output string) string {
 	text := strings.TrimSpace(visible(output))
+	if _, inside, ok := strings.Cut(text, "<text>"); ok {
+		if i := strings.LastIndex(inside, "</text>"); i >= 0 {
+			return strings.TrimSpace(inside[:i])
+		}
+	}
 	if fenced, ok := strings.CutPrefix(text, "```"); ok {
 		if _, body, ok := strings.Cut(fenced, "\n"); ok {
 			if body, ok = strings.CutSuffix(strings.TrimRight(body, " \t\n"), "```"); ok {

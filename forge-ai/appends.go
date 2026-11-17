@@ -17,12 +17,9 @@ type appender struct {
 	// take is the draft with the item the model wrote as plain text added,
 	// or the draft unchanged when it doesn't survive.
 	take func(r *run, text string) (json.RawMessage, error)
-	// existing is the list for the prompt, beside a card. Nil sends none.
-	existing func(r *run) ([]string, error)
 }
 
-var greetingsAppender = &appender{item: "greeting", take: (*run).withGreeting,
-	existing: (*run).greetings}
+var greetingsAppender = &appender{item: "greeting", take: (*run).withGreeting}
 
 var entriesAppender = &appender{item: "entry", take: (*run).withEntryText}
 
