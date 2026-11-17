@@ -45,6 +45,21 @@ jobs:
             # The new tag exists only on GitHub; the index's release notes need it here.
             git tag "$tag" "$GITHUB_SHA"
           done
+      # Each skill is zipped with its folder as the top entry, the layout
+      # Forge's import expects, at a URL that stays the same across releases.
+      - name: Publish skills
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p skills-dist
+          for dir in */skills/*/; do
+            (cd "$(dirname "$dir")" && zip -qr "$GITHUB_WORKSPACE/skills-dist/$(basename "$dir").zip" "$(basename "$dir")")
+          done
+          if ! gh release view skills >/dev/null 2>&1; then
+            gh release create skills --target "$GITHUB_SHA" --latest=false --title "Skills" \
+              --notes "Skill zips to import into Forge. Rebuilt on every push to main."
+          fi
+          gh release upload skills skills-dist/*.zip --clobber
       - name: Rebuild the published index
         env:
           GH_TOKEN: ${{ github.token }}

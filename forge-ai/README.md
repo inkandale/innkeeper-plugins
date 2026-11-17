@@ -222,6 +222,10 @@ Import takes a `SKILL.md` or a zip of a skill folder, uploaded or by an
 `http` or `https` URL. A zip is recognized by its content, not its name.
 Importing a skill replaces the one with the same name.
 
+The skills in [`skills/`](skills) are published as zips. To import one, use
+its URL, such as
+`https://github.com/inkandale/innkeeper-plugins/releases/download/skills/card-craft.zip`.
+
 | Limit | Value |
 |---|---|
 | Upload or download | 8 MiB |
