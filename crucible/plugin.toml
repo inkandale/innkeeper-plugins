@@ -1,10 +1,10 @@
 name = "crucible"
 title = "Crucible"
-version = "0.5.1"
+version = "0.5.2"
 protocol = 1
 protocol_version = "1.4"
 # Raise when the served model changes; scores from an older version count as outdated.
-enrich_version = 2
+enrich_version = 3
 command = ["./crucible"]
 capabilities = ["enrich"]
 # Each card is one quick HTTP lookup, so one run can cover a whole archive.
